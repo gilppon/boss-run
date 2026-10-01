@@ -317,7 +317,7 @@ export class BossScene extends Phaser.Scene {
     if (this.t - this.lastHit < 3.5) this.combo++;
     else this.combo = 1;
     this.lastHit = this.t;
-    if (this.combo >= 2) this.fx.text(x, y - 56, `COMBO x${this.combo}`, "#ffe14d", 22);
+    if (this.combo >= 2) this.fx.text(x, y - 56, `COMBO ×${this.combo}`, "#ffe14d", 22);
   }
 
   private bossHit() {

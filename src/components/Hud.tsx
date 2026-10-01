@@ -154,13 +154,13 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
           <div className="absolute -right-3 -top-[14px] text-2xl">🚪</div>
         </div>
         <div className="mt-2 text-center text-xs font-bold tracking-widest text-white/60">
-          {hud.started ? `${hud.time.toFixed(1)}s  ·  to gate ${Math.round((1 - hud.bossProgress) * 100)}%` : "Get ready..."}
+          {hud.started ? `${hud.time.toFixed(1)}s  ·  ${Math.round((1 - hud.bossProgress) * 100)}% to the gate` : "Get ready…"}
         </div>
       </div>
 
       {hud.combo >= 2 && (
         <div className="absolute left-1/2 top-[152px] -translate-x-1/2 text-3xl font-black text-yellow-300 drop-shadow-[0_3px_0_#1b1020]">
-          COMBO x{hud.combo}
+          COMBO ×{hud.combo}
         </div>
       )}
 
@@ -254,11 +254,11 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
 
       {showHint && !ended && placed < 1 && (
         <div className="absolute bottom-[132px] left-1/2 -translate-x-1/2 rounded-2xl border-2 border-yellow-300/70 bg-black/70 px-6 py-3 text-center text-lg font-bold text-yellow-100 shadow-xl">
-          🎯 <b className="text-yellow-300">MISSION</b> · <b className="text-emerald-300">green zone</b> (the ground
-          ahead of the hero) — <b className="text-yellow-300">click / drag</b> to place 1 trap!
+          🎯 <b className="text-yellow-300">MISSION</b> · <b className="text-emerald-300">click or drag</b> in the green zone ahead of
+          the hero to place a trap!
           <br />
           <span className="text-sm text-white/70">
-            The wider the lava, the harder it jumps · Get close? Press <b>Space</b> to roar
+            The wider the lava, the higher he jumps · Get close? Press <b>Space</b> to roar
           </span>
         </div>
       )}

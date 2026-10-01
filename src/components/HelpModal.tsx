@@ -1,8 +1,8 @@
 export default function HelpModal({ onClose }: { onClose: () => void }) {
   const rows: Array<[string, string, string]> = [
-    ["🌋", "Lava Pit", "The wider you drag, the less the hero can jump it. Five tiles is basically a guaranteed kill."],
+    ["🌋", "Lava Pit", "The wider you drag it, the higher the hero has to jump. Five tiles wide is basically a guaranteed kill."],
     ["🗡️", "Drop Spikes", "Falls from the ceiling as the hero approaches. Spot it and stop — that stall is free damage."],
-    ["👺", "Flame Minion", "Spits fire. Step on it and it dies, but from Lv.3 the spiked helm bites stompers too."],
+    ["👺", "Flame Minion", "Spits fire. Step on it and it dies, but from Lv.3 its spiked helm bites anyone who stomps on it too."],
   ];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
@@ -53,7 +53,7 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <p className="mt-4 text-sm text-white/60">
-          💎 Every run earns you <b>dark gems</b>. Upgrade traps, evolve the boss, expand the dungeon, then take on a
+          💎 Every run earns you <b>gems</b>. Upgrade traps, evolve the boss, expand the dungeon, then take on a
           tougher hero!
         </p>
         <button

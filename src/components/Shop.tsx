@@ -90,7 +90,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
           <h2 className="text-2xl font-black text-yellow-300">🛒 Demon Forge</h2>
           <div className="flex items-center gap-3">
             <div className="rounded-full border-2 border-violet-400/60 bg-black/50 px-4 py-1 text-lg font-black tabular-nums text-violet-200">
-              💎 {save.gems.toLocaleString()}
+              💎 {save.gems.toLocaleString("en-US")}
             </div>
             <button onClick={onClose} className="rounded-lg bg-white/10 px-3 py-1 text-lg hover:bg-white/20">
               ✕
@@ -197,7 +197,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                       <Row k="Max Mana" v={`${f.maxMana}`} />
                       <Row k="Mana Regen" v={`${f.manaRegen}/s`} />
                       <Row k="Run Speed" v={`${f.speed}`} />
-                      <Row k="Roar Power" v={`x${f.roarPower}`} />
+                      <Row k="Roar Power" v={`×${f.roarPower}`} />
                       <Row k="Roar Cooldown" v={`${f.roarCooldown}s`} />
                     </div>
                     <div className="mt-3 w-full">
@@ -280,7 +280,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                             {fl.heroName} · HP {fl.heroHp} · 💎 {fl.reward}
                           </div>
                         </div>
-                        <div className="text-sm font-bold">{cleared ? "✅ Cleared" : open ? "⚔️ Unlocked" : "🔒"}</div>
+                        <div className="text-sm font-bold">{cleared ? "✅ Cleared" : open ? "Open" : "🔒"}</div>
                       </div>
                     );
                   })}

@@ -22,9 +22,9 @@ interface Props {
 }
 
 const REASON: Record<string, string> = {
-  "hero-defeated": "The hero is on his knees in your trap.",
-  "boss-defeated": "The hero's blade put the demon down...",
-  "exit-reached": "You reached the gate. He's still breathing...",
+  "hero-defeated": "He went down in your trap and stayed there.",
+  "boss-defeated": "The hero's blade put the demon down…",
+  "exit-reached": "You reached the gate. He's still breathing…",
 };
 
 export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onWatchAd, onRevive, reviveBusy }: Props) {
@@ -41,7 +41,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
       >
         <div className="text-6xl">{r.won ? "👑" : "💀"}</div>
         <h2 className={`mt-1 text-4xl font-black ${r.won ? "text-yellow-300" : "text-rose-300"}`}>
-          {r.won ? "HERO DEFEATED!" : "Defeat..."}
+          {r.won ? "HERO DEFEATED!" : "DEFEAT!"}
         </h2>
         <p className="mt-1 text-white/80">{REASON[r.reason]}</p>
         <p className="mt-1 text-xs text-white/40">
@@ -63,7 +63,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
             <span className="tabular-nums">💎 {reward.base}</span>
           </div>
           <div className="flex items-center justify-between text-sm text-white/70">
-            <span>{r.won ? "HP-left bonus" : "Progress bonus"}</span>
+            <span>{r.won ? "HP remaining bonus" : "Progress bonus"}</span>
             <span className="tabular-nums">💎 {reward.bonus}</span>
           </div>
           {reward.vaultPct > 0 && (
@@ -73,7 +73,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
             </div>
           )}
           <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-2xl font-black text-violet-300">
-            <span>Dark gems</span>
+            <span>Gems</span>
             <span className="tabular-nums">💎 +{reward.total + (info.adClaimed ? reward.total : 0)}</span>
           </div>
         </div>
@@ -89,7 +89,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
           onClick={onWatchAd}
           className="mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-fuchsia-500 to-violet-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
         >
-          {info.adClaimed ? "✅ Ad bonus claimed (2x)" : `🎬 Watch an ad for +${reward.total} gems`}
+          {info.adClaimed ? "✅ Ad bonus claimed (2×)" : `🎬 Watch an ad for +${reward.total} gems`}
         </button>
 
         {!r.won && (
@@ -98,7 +98,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
             onClick={onRevive}
             className="mt-3 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-emerald-500 to-teal-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
           >
-            {info.adBusy || reviveBusy ? "🎬 Loading ad..." : "🎬 Watch an ad to revive! (Hero back at 50% HP)"}
+            {info.adBusy || reviveBusy ? "🎬 Loading ad…" : "🎬 Watch an ad to revive! (Hero back at 50% HP)"}
           </button>
         )}
 

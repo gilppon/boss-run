@@ -111,7 +111,7 @@ export default function PlayScreen({ config, showHint, soundOn, onToggleSound, o
                 }}
                 className="w-64 rounded-2xl border-4 border-[#1b1020] bg-black/70 py-3 text-xl font-bold hover:bg-black"
               >
-                🏰 Back to Castle
+                🏰 Main Menu
               </button>
             </div>
           )}

@@ -72,7 +72,7 @@ export default function MainMenu({
         {/* top bar */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 rounded-full border-2 border-violet-400/60 bg-black/60 px-5 py-1.5 text-xl font-black tabular-nums text-violet-200 shadow-lg">
-            💎 {save.gems.toLocaleString()}
+            💎 {save.gems.toLocaleString("en-US")}
             <span className="text-xs font-bold text-white/40">GEMS</span>
           </div>
           <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function MainMenu({
                     : "bg-black/50 text-white/40"
                 }`}
               >
-                ⛏️ Mine {pending > 0 ? `+${pending}` : "filling"}
+                ⛏️ Mine {pending > 0 ? `+${pending.toLocaleString("en-US")} gems` : "filling"}
               </button>
             )}
             <button
@@ -99,17 +99,20 @@ export default function MainMenu({
                   : "bg-black/50 text-white/40"
               }`}
             >
-              🎁 {daily.available ? `+${daily.amount} (Day ${daily.streakDay})` : `Day ${daily.streakDay}`}
+              🎁{" "}
+              {daily.available
+                ? `+${daily.amount} gems (Day ${daily.streakDay})`
+                : `Day ${daily.streakDay} claimed`}
             </button>
             <button onClick={onHelp} className="rounded-full border-2 border-[#1b1020] bg-black/60 px-4 py-1.5 text-sm font-bold hover:bg-black/80">
-              ❓ How
+              ❓ How to play
             </button>
             <button onClick={onToggleSound} className="rounded-full border-2 border-[#1b1020] bg-black/60 px-3 py-1.5 text-sm hover:bg-black/80">
               {save.soundOn ? "🔊" : "🔇"}
             </button>
             <button
               onClick={onToggleFx}
-              title={save.lowFx ? "Low FX mode is on" : "Low FX mode is off"}
+              title={save.lowFx ? "Lean effects on" : "Full effects"}
               className={`rounded-full border-2 border-[#1b1020] px-3 py-1.5 text-sm hover:bg-black/80 ${
                 save.lowFx ? "bg-emerald-700" : "bg-black/60"
               }`}
@@ -121,7 +124,7 @@ export default function MainMenu({
 
         {/* title */}
         <header className="mt-4 text-center sm:mt-6">
-          <div className="text-xs font-bold tracking-[0.5em] text-orange-300/80">REVERSE KUPA</div>
+          <div className="text-xs font-bold tracking-[0.5em] text-orange-300/80">REVERSE PRINCESS</div>
           <h1 className="title-glow mt-1 text-5xl font-black leading-none tracking-tight sm:text-7xl">
             <span className="bg-gradient-to-b from-yellow-200 via-orange-400 to-red-600 bg-clip-text text-transparent">
               REVERSE BOSS
@@ -134,7 +137,7 @@ export default function MainMenu({
           <p className="mx-auto mt-3 max-w-xl text-sm text-white/75 sm:text-base">
             A hero is coming to save the princess? This time <b className="text-rose-300">you're the demon</b>.
             <br />
-            Drop <b className="text-orange-300">lava, spikes and minions</b> in his path and wipe him out!
+            Lay <b className="text-orange-300">lava, spikes and minions</b> in his path and wipe him out!
           </p>
         </header>
 
@@ -173,7 +176,7 @@ export default function MainMenu({
                 color="#60a5fa"
                 value={`${(form.manaRegen + 1.2 * save.facilities.well).toFixed(1)}/s`}
               />
-              <StatBar label="Roar" pct={form.roarPower / maxOf("roarPower")} color="#fb923c" value={`x${form.roarPower}`} />
+              <StatBar label="Roar" pct={form.roarPower / maxOf("roarPower")} color="#fb923c" value={`×${form.roarPower}`} />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
@@ -194,15 +197,15 @@ export default function MainMenu({
             <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-white/5 py-1.5">
                 <div className="text-white/40">Runs</div>
-                <div className="text-base font-black tabular-nums">{save.stats.runs}</div>
+                <div className="text-base font-black tabular-nums">{save.stats.runs.toLocaleString("en-US")}</div>
               </div>
               <div className="rounded-lg bg-white/5 py-1.5">
                 <div className="text-white/40">Heroes Slain</div>
-                <div className="text-base font-black tabular-nums">{save.stats.heroesDefeated}</div>
+                <div className="text-base font-black tabular-nums">{save.stats.heroesDefeated.toLocaleString("en-US")}</div>
               </div>
               <div className="rounded-lg bg-white/5 py-1.5">
                 <div className="text-white/40">Total 💎</div>
-                <div className="text-base font-black tabular-nums">{save.totalEarned}</div>
+                <div className="text-base font-black tabular-nums">{save.totalEarned.toLocaleString("en-US")}</div>
               </div>
             </div>
           </section>
@@ -210,7 +213,7 @@ export default function MainMenu({
           {/* floor select */}
           <section className="flex flex-col rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
             <h2 className="mb-3 flex items-center gap-2 text-xl font-black text-yellow-200">
-              🗺️ Dungeon — pick your hero's floor
+              🗺️ Dungeon — pick the hero's floor
             </h2>
             <div className="grid flex-1 gap-2">
               {FLOORS.map((f, i) => {
@@ -243,7 +246,7 @@ export default function MainMenu({
                       <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-bold">
                         <span className="text-emerald-300">🧑‍🔧 {f.heroName}</span>
                         <span className="text-rose-300">HP {f.heroHp}</span>
-                        <span className="text-sky-300">Dist {(f.length / 100).toFixed(0)}m</span>
+                        <span className="text-sky-300">Length {(f.length / 100).toFixed(0)}m</span>
                         <span className="text-violet-300">💎 {f.reward}+</span>
                       </div>
                     </div>
@@ -266,7 +269,7 @@ export default function MainMenu({
         <footer className="mt-4 flex items-center justify-between text-xs text-white/40">
           <span>Click / drag · 1·2·3 pick a trap · Space to roar</span>
           <button onClick={() => setShowReset(true)} className="underline decoration-dotted hover:text-white/70">
-            Reset data
+            Reset progress
           </button>
         </footer>
       </div>
@@ -277,9 +280,9 @@ export default function MainMenu({
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowReset(false)} />
           <div className="relative w-full max-w-sm rounded-2xl border-2 border-[#1b1020] bg-gradient-to-b from-[#2a1030] to-[#12060f] p-6 text-center shadow-2xl">
             <div className="text-4xl">⚠️</div>
-            <h2 className="mt-2 text-xl font-black text-white">Reset for real?</h2>
+            <h2 className="mt-2 text-xl font-black text-white">Reset your progress?</h2>
             <p className="mt-1 text-sm text-white/60">
-              All progress (gems, traps, dungeon, records) is gone for good.
+              Every gem, trap and dungeon record is lost forever.
             </p>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button

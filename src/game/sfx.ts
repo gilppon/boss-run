@@ -1,9 +1,12 @@
 // Lightweight WebAudio sound effects (no external assets)
 let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
 let enabled = true;
+// Separate from `enabled` so unmuting after an ad never un-mutes a player-muted game.
+let adMuted = false;
 
 function getCtx(): AudioContext | null {
-  if (!enabled) return null;
+  if (!enabled || adMuted) return null;
   try {
     if (!ctx) {
       const Ctor =
@@ -11,6 +14,9 @@ function getCtx(): AudioContext | null {
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctor) return null;
       ctx = new Ctor();
+      master = ctx.createGain();
+      master.gain.value = 1;
+      master.connect(ctx.destination);
     }
     if (ctx.state === "suspended") void ctx.resume();
     return ctx;
@@ -19,9 +25,13 @@ function getCtx(): AudioContext | null {
   }
 }
 
+function applyGain() {
+  if (master) master.gain.value = adMuted ? 0 : 1;
+}
+
 function tone(freq: number, dur: number, type: OscillatorType, vol: number, slideTo?: number, delay = 0) {
   const c = getCtx();
-  if (!c) return;
+  if (!c || !master) return;
   const t0 = c.currentTime + delay;
   const osc = c.createOscillator();
   const gain = c.createGain();
@@ -32,14 +42,14 @@ function tone(freq: number, dur: number, type: OscillatorType, vol: number, slid
   gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   osc.connect(gain);
-  gain.connect(c.destination);
+  gain.connect(master);
   osc.start(t0);
   osc.stop(t0 + dur + 0.02);
 }
 
 function noise(dur: number, vol: number, delay = 0) {
   const c = getCtx();
-  if (!c) return;
+  if (!c || !master) return;
   const len = Math.floor(c.sampleRate * dur);
   const buf = c.createBuffer(1, len, c.sampleRate);
   const data = buf.getChannelData(0);
@@ -49,13 +59,18 @@ function noise(dur: number, vol: number, delay = 0) {
   const gain = c.createGain();
   gain.gain.value = vol;
   src.connect(gain);
-  gain.connect(c.destination);
+  gain.connect(master);
   src.start(c.currentTime + delay);
 }
 
 export const sfx = {
   setEnabled(on: boolean) {
     enabled = on;
+  },
+  /** Portal requirement: silence all audio while an ad is playing. */
+  setAdMuted(m: boolean) {
+    adMuted = m;
+    applyGain();
   },
   unlock() {
     getCtx();

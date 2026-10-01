@@ -2,6 +2,8 @@
 // is loaded; otherwise it falls back to the mock ad UI.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { sfx } from "./sfx";
+
 declare global {
   interface Window {
     PokiSDK?: any;
@@ -87,26 +89,42 @@ export const Poki = {
   async commercialBreak(): Promise<void> {
     if (real) {
       try {
-        await window.PokiSDK.commercialBreak();
+        await window.PokiSDK.commercialBreak(() => sfx.setAdMuted(true));
       } catch {
         /* ad failures are ignored */
+      } finally {
+        sfx.setAdMuted(false);
       }
       return;
     }
     if (!adUI) return;
-    await new Promise<void>((resolve) => adUI!("commercial", () => resolve()));
+    sfx.setAdMuted(true);
+    try {
+      await new Promise<void>((resolve) => adUI!("commercial", () => resolve()));
+    } finally {
+      sfx.setAdMuted(false);
+    }
   },
 
   /** Rewarded ad. Returns true when watched to completion */
   async rewardedBreak(): Promise<boolean> {
     if (real) {
       try {
-        return Boolean(await window.PokiSDK.rewardedBreak());
+        return Boolean(
+          await window.PokiSDK.rewardedBreak({ onStart: () => sfx.setAdMuted(true) }),
+        );
       } catch {
         return false;
+      } finally {
+        sfx.setAdMuted(false);
       }
     }
     if (!adUI) return true;
-    return new Promise<boolean>((resolve) => adUI!("rewarded", (ok) => resolve(ok)));
+    sfx.setAdMuted(true);
+    try {
+      return await new Promise<boolean>((resolve) => adUI!("rewarded", (ok) => resolve(ok)));
+    } finally {
+      sfx.setAdMuted(false);
+    }
   },
 };

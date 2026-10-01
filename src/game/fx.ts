@@ -16,14 +16,14 @@ export interface BurstOpts {
   life?: number;
   gravity?: number;
   size?: number;
-  up?: number; // 위쪽 편향
+  up?: number; // upward bias
   spreadX?: number;
   additive?: boolean;
 }
 
-export const FONT = '"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif';
+export const FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
 
-// 저사양 모드: 파티클 생성량 절반 + 상시 이펙트間引き. App에서 save.lowFx와 동기화.
+// Low-spec mode: halve the particle count and space out ambient effects. Synced with save.lowFx in App.
 let qualityScale = 1;
 export function setFxQuality(low: boolean) {
   qualityScale = low ? 0.5 : 1;
@@ -119,7 +119,7 @@ export class Fx {
     });
   }
 
-  /** 화면 고정 텍스트(카운트다운 등) */
+  /** Screen-fixed text (countdown etc.) */
   banner(x: number, y: number, str: string, color = "#fff", size = 72, ms = 900) {
     const t = this.scene.add
       .text(x, y, str, {

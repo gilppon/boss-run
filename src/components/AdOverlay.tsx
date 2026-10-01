@@ -6,7 +6,7 @@ export interface AdState {
   done: (ok: boolean) => void;
 }
 
-/** Poki SDK가 없는 환경에서 광고 흐름을 확인하기 위한 모의 광고 화면 */
+/** Mock ad screen for testing the ad flow where the Poki SDK is not available */
 export default function AdOverlay({ kind, onDone }: { kind: AdKind; onDone: (ok: boolean) => void }) {
   const total = kind === "rewarded" ? 3 : 2;
   const [left, setLeft] = useState(total);
@@ -33,11 +33,11 @@ export default function AdOverlay({ kind, onDone }: { kind: AdKind; onDone: (ok:
       </div>
       <div className="text-6xl">{kind === "rewarded" ? "🎁" : "📺"}</div>
       <div className="text-2xl font-black">
-        {kind === "rewarded" ? "보상형 광고 시청 중..." : "잠시 광고가 나옵니다"}
+        {kind === "rewarded" ? "Rewarded ad playing..." : "An ad is coming up"}
       </div>
       <div className="text-5xl font-black tabular-nums text-yellow-300">{Math.max(left, 0)}</div>
       <p className="max-w-sm text-sm text-white/50">
-        실제 Poki 환경(또는 ?poki 파라미터)에서는 이 자리에 Poki 광고가 표시됩니다.
+        In a real Poki environment (or with the ?poki param) a real Poki ad shows here.
       </p>
       {kind === "rewarded" && (
         <button
@@ -48,7 +48,7 @@ export default function AdOverlay({ kind, onDone }: { kind: AdKind; onDone: (ok:
           }}
           className="mt-2 rounded-lg border border-white/30 px-4 py-2 text-sm text-white/70 hover:bg-white/10"
         >
-          건너뛰기 (보상 포기)
+          Skip (forfeit reward)
         </button>
       )}
     </div>

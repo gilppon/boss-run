@@ -4,7 +4,7 @@ export { bgUrl };
 
 let cached: Promise<HTMLImageElement | null> | null = null;
 
-/** 마왕성 배경 이미지를 미리 로드(단일 파일 빌드라 data URI로 인라인 됨) */
+/** Preload the castle backdrop (inlined as a data URI in the single-file build) */
 export function loadBackdrop(): Promise<HTMLImageElement | null> {
   if (!cached) {
     cached = new Promise((resolve) => {

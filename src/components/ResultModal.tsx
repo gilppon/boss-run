@@ -22,9 +22,9 @@ interface Props {
 }
 
 const REASON: Record<string, string> = {
-  "hero-defeated": "용사가 함정에 무릎을 꿇었다!",
-  "boss-defeated": "용사의 칼날에 마왕이 쓰러졌다...",
-  "exit-reached": "성문에 도착했지만 용사는 아직 살아있다...",
+  "hero-defeated": "The hero is on his knees in your trap.",
+  "boss-defeated": "The hero's blade put the demon down...",
+  "exit-reached": "You reached the gate. He's still breathing...",
 };
 
 export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onWatchAd, onRevive, reviveBusy }: Props) {
@@ -41,7 +41,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
       >
         <div className="text-6xl">{r.won ? "👑" : "💀"}</div>
         <h2 className={`mt-1 text-4xl font-black ${r.won ? "text-yellow-300" : "text-rose-300"}`}>
-          {r.won ? "용사 퇴치 성공!" : "패배..."}
+          {r.won ? "HERO DEFEATED!" : "Defeat..."}
         </h2>
         <p className="mt-1 text-white/80">{REASON[r.reason]}</p>
         <p className="mt-1 text-xs text-white/40">
@@ -49,38 +49,38 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
         </p>
 
         <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-          <Stat label="생존 시간" value={`${r.time.toFixed(1)}s`} />
-          <Stat label="설치한 트랩" value={`${r.trapsPlaced}`} />
-          <Stat label="트랩 적중" value={`${r.trapHits}`} />
-          <Stat label="용사 피해" value={`${Math.round(r.heroDamagePct * 100)}%`} />
-          <Stat label="마왕 체력" value={`${Math.round(r.bossHpPct * 100)}%`} />
-          <Stat label="졸개 전사" value={`${r.minionKills}`} />
+          <Stat label="Survived" value={`${r.time.toFixed(1)}s`} />
+          <Stat label="Traps Placed" value={`${r.trapsPlaced}`} />
+          <Stat label="Trap Hits" value={`${r.trapHits}`} />
+          <Stat label="Hero Damage" value={`${Math.round(r.heroDamagePct * 100)}%`} />
+          <Stat label="Boss HP" value={`${Math.round(r.bossHpPct * 100)}%`} />
+          <Stat label="Minions Killed" value={`${r.minionKills}`} />
         </div>
 
         <div className="mt-4 rounded-2xl bg-black/40 p-4">
           <div className="flex items-center justify-between text-sm text-white/70">
-            <span>기본 보상</span>
+            <span>Base reward</span>
             <span className="tabular-nums">💎 {reward.base}</span>
           </div>
           <div className="flex items-center justify-between text-sm text-white/70">
-            <span>{r.won ? "잔여 체력 보너스" : "진행도 보너스"}</span>
+            <span>{r.won ? "HP-left bonus" : "Progress bonus"}</span>
             <span className="tabular-nums">💎 {reward.bonus}</span>
           </div>
           {reward.vaultPct > 0 && (
             <div className="flex items-center justify-between text-sm text-emerald-300">
-              <span>보물고 보너스</span>
+              <span>Vault bonus</span>
               <span className="tabular-nums">+{reward.vaultPct}%</span>
             </div>
           )}
           <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-2xl font-black text-violet-300">
-            <span>획득 다크젬</span>
+            <span>Dark gems</span>
             <span className="tabular-nums">💎 +{reward.total + (info.adClaimed ? reward.total : 0)}</span>
           </div>
         </div>
 
         {info.unlockedNext && (
           <div className="mt-3 rounded-xl border border-yellow-300/40 bg-yellow-300/10 px-3 py-2 text-sm font-bold text-yellow-200">
-            🔓 새로운 던전 층 해금: {FLOORS[floorIndex + 1].name}
+            🔓 New floor unlocked: {FLOORS[floorIndex + 1].name}
           </div>
         )}
 
@@ -89,7 +89,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
           onClick={onWatchAd}
           className="mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-fuchsia-500 to-violet-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
         >
-          {info.adClaimed ? "✅ 광고 보상 수령 완료 (2배)" : `🎬 광고 보고 다크젬 +${reward.total} 더 받기`}
+          {info.adClaimed ? "✅ Ad bonus claimed (2x)" : `🎬 Watch an ad for +${reward.total} gems`}
         </button>
 
         {!r.won && (
@@ -98,7 +98,7 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
             onClick={onRevive}
             className="mt-3 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-emerald-500 to-teal-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
           >
-            {info.adBusy || reviveBusy ? "🎬 광고 로딩 중..." : "🎬 광고 보고 부활! (용사 체력 50%로 재대결)"}
+            {info.adBusy || reviveBusy ? "🎬 Loading ad..." : "🎬 Watch an ad to revive! (Hero back at 50% HP)"}
           </button>
         )}
 
@@ -108,35 +108,35 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
               onClick={onNext}
               className="rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 to-red-600 py-3 text-lg font-black hover:brightness-110"
             >
-              ⏭ 다음 층 도전
+              ⏭ Next floor
             </button>
           ) : (
             <button
               onClick={onRetry}
               className="rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 to-red-600 py-3 text-lg font-black hover:brightness-110"
             >
-              🔁 다시 도전
+              🔁 Retry
             </button>
           )}
           <button
             onClick={onShop}
             className="rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-sky-500 to-indigo-700 py-3 text-lg font-black hover:brightness-110"
           >
-            🛒 마왕성 강화
+            🛒 Upgrade
           </button>
           {hasNext && (
             <button
               onClick={onRetry}
               className="rounded-2xl border-4 border-[#1b1020] bg-black/50 py-2 font-bold hover:bg-black/70"
             >
-              🔁 다시 도전
+              🔁 Retry
             </button>
           )}
           <button
             onClick={onMenu}
             className={`rounded-2xl border-4 border-[#1b1020] bg-black/50 py-2 font-bold hover:bg-black/70 ${hasNext ? "" : "col-span-2"}`}
           >
-            🏰 메인으로
+            🏰 Main Menu
           </button>
         </div>
       </div>

@@ -24,7 +24,7 @@ export default function PlayScreen({ config, showHint, soundOn, onToggleSound, o
   const pausedRef = useRef(false);
   const endedRef = useRef(false);
 
-  // 1280x720 좌표계 HUD를 실제 캔버스 크기에 맞게 스케일
+  // scale the 1280x720 HUD coordinate space to the actual canvas size
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -97,12 +97,12 @@ export default function PlayScreen({ config, showHint, soundOn, onToggleSound, o
           />
           {paused && (
             <div className="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center gap-5 bg-black/70">
-              <div className="text-6xl font-black tracking-wider text-yellow-300 drop-shadow">일시정지</div>
+              <div className="text-6xl font-black tracking-wider text-yellow-300 drop-shadow">PAUSED</div>
               <button
                 onClick={() => applyPause(false)}
                 className="w-64 rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 to-red-600 py-3 text-2xl font-black shadow-xl hover:scale-105"
               >
-                ▶ 계속하기
+                ▶ Resume
               </button>
               <button
                 onClick={() => {
@@ -111,7 +111,7 @@ export default function PlayScreen({ config, showHint, soundOn, onToggleSound, o
                 }}
                 className="w-64 rounded-2xl border-4 border-[#1b1020] bg-black/70 py-3 text-xl font-bold hover:bg-black"
               >
-                🏰 마왕성으로 돌아가기
+                🏰 Back to Castle
               </button>
             </div>
           )}

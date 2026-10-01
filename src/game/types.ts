@@ -1,7 +1,7 @@
 export type TrapType = "Lava" | "Spike" | "Minion";
 export const TRAP_TYPES: TrapType[] = ["Lava", "Spike", "Minion"];
 
-/** 기획서의 데이터 구조 */
+/** Data shapes from the design doc */
 export interface HeroHeroAI {
   x: number;
   y: number;
@@ -68,9 +68,9 @@ export interface FloorDef {
   heroHp: number;
   heroSpeed: number;
   heroJump: number;
-  heroSkill: number; // 0~1 점프 타이밍 정확도
-  heroDodge: number; // 낙하 가시 회피 확률
-  heroBlunder: number; // 큰 실수 확률
+  heroSkill: number; // 0~1 jump timing accuracy
+  heroDodge: number; // chance to dodge a falling drop spike
+  heroBlunder: number; // chance of a big mistake
   contactDamage: number;
   reward: number;
   accent: string;
@@ -81,7 +81,7 @@ export interface RunConfig {
   floor: FloorDef;
   boss: BossStats;
   traps: Record<TrapType, TrapStats>;
-  heroHpScale?: number; // 부활용: 용사 체력 배율 (기본 1)
+  heroHpScale?: number; // revive: hero HP multiplier (default 1)
 }
 
 export type EndReason = "hero-defeated" | "boss-defeated" | "exit-reached";
@@ -130,14 +130,14 @@ export interface SaveData {
   totalEarned: number;
   trapLevels: Record<TrapType, number>;
   bossForm: number;
-  cleared: number; // 연속으로 클리어한 층 수
+  cleared: number; // highest floor index cleared in a row
   selectedFloor: number;
   facilities: { mine: number; well: number; vault: number };
   lastCollect: number;
   stats: { runs: number; wins: number; heroesDefeated: number };
   soundOn: boolean;
   seenTutorial: boolean;
-  lowFx: boolean; // 저사양 이펙트 모드
-  lastDaily: number; // 일일보상 마지막 수령 시각
-  dailyStreak: number; // 연속 출석 일수 (1~7 사이클)
+  lowFx: boolean; // low-spec fx mode
+  lastDaily: number; // timestamp of the last daily reward claim
+  dailyStreak: number; // consecutive days checked in (1~7 cycle)
 }

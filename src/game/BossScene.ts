@@ -26,9 +26,10 @@ export interface SceneInit {
 }
 
 /**
- * 역발상 러너의 메인 씬.
- * 유저는 마왕(보스)이 되어 앞으로 달리고, 뒤에서 쫓아오는 용사의 진행 경로에
- * 트랩을 즉석 설치한다. 월드는 보스 기준으로 스크롤된다.
+ * Main scene for the reverse runner.
+ * The player IS the demon (boss): they run forward while installing traps
+ * instantly on the path of the hero chasing from behind. The world scrolls
+ * relative to the boss.
  */
 export class BossScene extends Phaser.Scene {
   private cfg!: RunConfig;
@@ -110,7 +111,7 @@ export class BossScene extends Phaser.Scene {
     cam.setBackgroundColor("#12060d");
     createTextures(this);
 
-    // ----- 배경 (반전 반복으로 이음새 없는 패럴랙스) -----
+    // ----- background (mirrored repeat for a seamless parallax) -----
     if (this.backdropImg) {
       if (this.textures.exists("bg")) this.textures.remove("bg");
       this.textures.addImage("bg", this.backdropImg);
@@ -128,14 +129,14 @@ export class BossScene extends Phaser.Scene {
       .setDepth(-5)
       .setAlpha(0.75);
 
-    // ----- 지면 -----
+    // ----- ground -----
     this.ground = this.add
       .tileSprite(0, GROUND_Y, W + 96, 170, "ground")
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(1);
 
-    // ----- 출구 성문 -----
+    // ----- exit gate -----
     const glow = this.add
       .image(this.exitX + 60, GROUND_Y - 150, "dot")
       .setTint(0xffe28a)
@@ -149,7 +150,7 @@ export class BossScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(5);
 
-    // ----- 이펙트/트랩/캐릭터 -----
+    // ----- fx / traps / characters -----
     this.fx = new Fx(this);
     this.tm = new TrapManager(this, this.cfg, this.fx);
 
@@ -169,7 +170,7 @@ export class BossScene extends Phaser.Scene {
 
     this.add.image(W / 2, H / 2, "vignette").setScrollFactor(0).setDepth(30);
 
-    // ----- 입력 -----
+    // ----- input -----
     this.input.mouse?.disableContextMenu();
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this.ended || this.paused) return;
@@ -215,7 +216,7 @@ export class BossScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanup());
 
-    this.fx.banner(W / 2, 250, "준비!", "#ffe14d", 80, 1100);
+    this.fx.banner(W / 2, 250, "READY!", "#ffe14d", 80, 1100);
     this.emitHud();
     bus.emit("ready");
   }
@@ -227,7 +228,7 @@ export class BossScene extends Phaser.Scene {
     this.offs = [];
   }
 
-  // ---------------- 입력 로직 ----------------
+  // ---------------- input logic ----------------
   private select(t: TrapType) {
     if (!this.cfg.traps[t].unlocked) return;
     this.selected = t;
@@ -252,7 +253,7 @@ export class BossScene extends Phaser.Scene {
     if (fromClick || this.lastPaintCell === null) {
       this.placeCell(cell, fromClick);
     } else {
-      // 드래그가 빠를 때 칸을 건너뛰지 않도록 보간
+      // interpolate so a fast drag never skips cells
       const step = cell >= this.lastPaintCell ? 1 : -1;
       for (let c = this.lastPaintCell + step; step > 0 ? c <= cell : c >= cell; c += step) {
         if (!this.placeCell(c, false)) break;
@@ -261,7 +262,7 @@ export class BossScene extends Phaser.Scene {
     this.lastPaintCell = cell;
   }
 
-  /** 반환: 계속 진행 가능한지(마나 부족이면 false) */
+  /** Returns: whether placement may continue (false when out of mana) */
   private placeCell(cell: number, fromClick: boolean): boolean {
     const [minX, maxX] = this.zone();
     const chk = this.tm.canPlace(this.selected, cell, minX, maxX);
@@ -269,7 +270,7 @@ export class BossScene extends Phaser.Scene {
     if (chk === "ok") {
       const cost = this.cfg.traps[this.selected].cost;
       if (this.mana < cost) {
-        this.deny(cx, "마나 부족!");
+        this.deny(cx, "No mana!");
         return false;
       }
       this.mana -= cost;
@@ -277,7 +278,7 @@ export class BossScene extends Phaser.Scene {
       sfx.place();
       return true;
     }
-    if (fromClick && chk === "zone") this.deny(cx, "용사 앞에만 설치 가능!");
+    if (fromClick && chk === "zone") this.deny(cx, "Place ahead of the hero!");
     return true;
   }
 
@@ -299,7 +300,7 @@ export class BossScene extends Phaser.Scene {
     this.fx.ring(this.bossX - 20, GROUND_Y - 100, 0xff6a3d, 16 * power);
     this.fx.ring(this.bossX - 20, GROUND_Y - 100, 0xffe28a, 10 * power);
     this.fx.burst(this.bossX - 40, GROUND_Y - 60, 26, { colors: [0xffe28a, 0xff6a3d], speed: 420, life: 0.6, gravity: 0, size: 0.5, spreadX: 1.4 });
-    this.fx.text(this.bossX - 40, GROUND_Y - 230 * this.cfg.boss.scale, "포효!", "#ffb02e", 34);
+    this.fx.text(this.bossX - 40, GROUND_Y - 230 * this.cfg.boss.scale, "ROAR!", "#ffb02e", 34);
     if (this.hero.alive) {
       this.hero.knockback(1000 * Math.sqrt(power));
       this.hero.roarT = 2.5;
@@ -308,7 +309,7 @@ export class BossScene extends Phaser.Scene {
     this.emitHud();
   }
 
-  // ---------------- 전투 이벤트 ----------------
+  // ---------------- combat events ----------------
   private onHeroDamaged(amount: number, _source: string, x: number, y: number) {
     this.trapHits++;
     this.fx.text(x, y - 18, `-${Math.round(amount)}`, "#ff5a5a", 28 + Math.min(amount / 3, 16));
@@ -352,12 +353,12 @@ export class BossScene extends Phaser.Scene {
     };
     if (won) {
       sfx.win();
-      this.fx.banner(W / 2, 260, "용사 퇴치!", "#ffe14d", 84, 1600);
+      this.fx.banner(W / 2, 260, "HERO DOWN!", "#ffe14d", 84, 1600);
       this.bossView.roar();
       this.cameras.main.flash(300, 255, 220, 120);
     } else {
       sfx.lose();
-      const msg = reason === "boss-defeated" ? "마왕 쓰러짐..." : "탈출 실패!";
+      const msg = reason === "boss-defeated" ? "DEMON DOWN..." : "ESCAPE FAILED!";
       this.fx.banner(W / 2, 260, msg, "#ff6b6b", 72, 1600);
     }
     this.emitHud();
@@ -391,7 +392,7 @@ export class BossScene extends Phaser.Scene {
     bus.emit("hud", st);
   }
 
-  // ---------------- 프레임 업데이트 ----------------
+  // ---------------- frame update ----------------
   update(_time: number, deltaMs: number) {
     if (this.paused) return;
     const dt = Math.min(deltaMs / 1000, 1 / 30);
@@ -403,7 +404,7 @@ export class BossScene extends Phaser.Scene {
       this.introT += dt;
       if (this.introT >= INTRO_TIME) {
         this.started = true;
-        this.fx.banner(W / 2, 250, "달려라, 마왕!", "#ff9a3d", 64, 1000);
+        this.fx.banner(W / 2, 250, "RUN, DEMON!", "#ff9a3d", 64, 1000);
         sfx.go();
       }
     }
@@ -429,11 +430,11 @@ export class BossScene extends Phaser.Scene {
         this.finish("exit-reached");
       }
     } else if (!this.hero.alive) {
-      // 용사 사망 연출 유지
+      // keep the hero death animation playing
       this.hero.update(dt, this.tm, this.bossX, false);
     }
 
-    // 보스/카메라
+    // boss / camera
     this.bossView.container.x = this.bossX;
     this.bossView.update(dt, active ? boss.speed : 0);
     this.bossShadow.setPosition(this.bossX - 6, GROUND_Y + 4);
@@ -513,7 +514,7 @@ export class BossScene extends Phaser.Scene {
   }
 
   private ambient(dt: number, scrollX: number, active: boolean) {
-    const slow = this.fx.lowFx ? 2 : 1; // 저사양: 상시 이펙트 빈도 절반
+    const slow = this.fx.lowFx ? 2 : 1; // low-spec: halve the ambient fx rate
     this.emberT += dt;
     if (this.emberT > 0.1 * slow) {
       this.emberT = 0;

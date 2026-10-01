@@ -44,14 +44,14 @@ export default function App() {
   const sessionRuns = useRef(0);
   const starting = useRef(false);
 
-  // 저장 & 사운드/이펙트 설정 동기화
+  // Persist save & sync sound/fx settings
   useEffect(() => {
     persistSave(save);
     sfx.setEnabled(save.soundOn);
     setFxQuality(save.lowFx);
   }, [save]);
 
-  // Poki SDK 초기화 + 모의 광고 UI 등록
+  // Poki SDK init + mock ad UI registration
   useEffect(() => {
     registerAdUI((kind, done) => {
       const a: AdState = { kind, done };
@@ -62,7 +62,7 @@ export default function App() {
     return () => registerAdUI(null);
   }, []);
 
-  // 첫 방문이면 도움말 자동 표시
+  // Show help automatically on first visit
   useEffect(() => {
     if (!saveRef.current.seenTutorial) setHelp(true);
   }, []);
@@ -82,7 +82,7 @@ export default function App() {
       setShop(null);
       setHelp(false);
       sessionRuns.current += 1;
-      // 런 사이의 자연스러운 휴식 지점에서만 전면 광고 (3판마다)
+      // Only show a commercial ad at a natural breather between runs (every 3rd)
       if (sessionRuns.current > 1 && (sessionRuns.current - 1) % 3 === 0) {
         await Poki.commercialBreak();
       }
@@ -128,7 +128,7 @@ export default function App() {
     }
   }, []);
 
-  // 패배 시 부활: 광고 시청 → 용사 체력 50%로 같은 층 재시작 (결과당 1회)
+  // Revive on defeat: watch an ad -> restart the same floor with the hero at 50% HP (once per result)
   const revive = useCallback(async () => {
     const cur = resultRef.current;
     if (!cur || cur.r.won || cur.adBusy) return;

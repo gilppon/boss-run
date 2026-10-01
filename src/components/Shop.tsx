@@ -75,9 +75,9 @@ function BuyButton({
 export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, onBuyFacility, onClose }: Props) {
   const [tab, setTab] = useState<ShopTab>(initialTab);
   const tabs: Array<[ShopTab, string]> = [
-    ["trap", "🪤 트랩 강화"],
-    ["boss", "👹 보스 진화"],
-    ["dungeon", "🏰 던전 확장"],
+    ["trap", "🪤 Trap Upgrades"],
+    ["boss", "👹 Boss Evolve"],
+    ["dungeon", "🏰 Dungeon"],
   ];
 
   return (
@@ -87,7 +87,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
-          <h2 className="text-2xl font-black text-yellow-300">🛒 마왕성 대장간</h2>
+          <h2 className="text-2xl font-black text-yellow-300">🛒 Demon Forge</h2>
           <div className="flex items-center gap-3">
             <div className="rounded-full border-2 border-violet-400/60 bg-black/50 px-4 py-1 text-lg font-black tabular-nums text-violet-200">
               💎 {save.gems.toLocaleString()}
@@ -131,29 +131,29 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-xl font-black">{d.name}</span>
                         <Pips level={lvl} max={MAX_TRAP_LEVEL} />
-                        {lvl === 0 && <span className="rounded bg-rose-500/80 px-2 text-xs font-bold">잠김</span>}
+                        {lvl === 0 && <span className="rounded bg-rose-500/80 px-2 text-xs font-bold">LOCKED</span>}
                       </div>
                       <p className="mt-1 text-sm text-white/65">{d.desc}</p>
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold">
                         <span className="text-rose-300">
-                          피해 {lvl > 0 ? cur.damage : "-"}
+                          DMG {lvl > 0 ? cur.damage : "-"}
                           {lvl < MAX_TRAP_LEVEL && <span className="text-emerald-300"> → {nxt.damage}</span>}
                         </span>
-                        <span className="text-violet-300">마나 {d.baseCost}</span>
+                        <span className="text-violet-300">Mana {d.baseCost}</span>
                         {t === "Minion" && (
                           <>
                             <span className="text-orange-300">
-                              체력 {lvl > 0 ? cur.hp : "-"}
+                              HP {lvl > 0 ? cur.hp : "-"}
                               {lvl < MAX_TRAP_LEVEL && nxt.hp !== cur.hp && (
                                 <span className="text-emerald-300"> → {nxt.hp}</span>
                               )}
                             </span>
                             <span className="text-sky-300">
-                              연사 {lvl > 0 ? cur.fireInterval.toFixed(2) : "-"}s
+                              Rate {lvl > 0 ? cur.fireInterval.toFixed(2) : "-"}s
                               {lvl < MAX_TRAP_LEVEL && <span className="text-emerald-300"> → {nxt.fireInterval.toFixed(2)}s</span>}
                             </span>
                             {(lvl + 1 >= 3 || cur.spiked) && (
-                              <span className="text-slate-200">{cur.spiked ? "🛡️ 가시 투구 적용" : "다음 Lv: 🛡️ 가시 투구"}</span>
+                              <span className="text-slate-200">{cur.spiked ? "🛡️ Spiked helm on" : "Next Lv: 🛡️ Spiked helm"}</span>
                             )}
                           </>
                         )}
@@ -162,7 +162,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                     <BuyButton
                       cost={cost}
                       gems={save.gems}
-                      label={lvl === 0 ? "해금" : "강화"}
+                      label={lvl === 0 ? "Unlock" : "Upgrade"}
                       onClick={() => onBuyTrap(t)}
                     />
                   </div>
@@ -193,21 +193,21 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                     <div className="text-xs tracking-widest text-white/40">{f.title.toUpperCase()}</div>
                     <p className="mt-1 min-h-[2.6rem] text-xs text-white/60">{f.desc}</p>
                     <div className="mt-2 w-full space-y-0.5 text-left text-xs font-bold">
-                      <Row k="체력" v={`${f.maxHp}`} />
-                      <Row k="최대 마나" v={`${f.maxMana}`} />
-                      <Row k="마나 재생" v={`${f.manaRegen}/s`} />
-                      <Row k="달리기 속도" v={`${f.speed}`} />
-                      <Row k="포효 파워" v={`x${f.roarPower}`} />
-                      <Row k="포효 쿨" v={`${f.roarCooldown}s`} />
+                      <Row k="HP" v={`${f.maxHp}`} />
+                      <Row k="Max Mana" v={`${f.maxMana}`} />
+                      <Row k="Mana Regen" v={`${f.manaRegen}/s`} />
+                      <Row k="Run Speed" v={`${f.speed}`} />
+                      <Row k="Roar Power" v={`x${f.roarPower}`} />
+                      <Row k="Roar Cooldown" v={`${f.roarCooldown}s`} />
                     </div>
                     <div className="mt-3 w-full">
                       {current ? (
-                        <div className="rounded-xl bg-yellow-300/20 py-2 text-sm font-black text-yellow-200">현재 폼</div>
+                        <div className="rounded-xl bg-yellow-300/20 py-2 text-sm font-black text-yellow-200">Current Form</div>
                       ) : owned ? (
-                        <div className="rounded-xl bg-white/10 py-2 text-sm font-bold text-white/60">진화 완료</div>
+                        <div className="rounded-xl bg-white/10 py-2 text-sm font-bold text-white/60">Evolved</div>
                       ) : isNext ? (
                         <div className="[&>button]:w-full">
-                          <BuyButton cost={f.cost} gems={save.gems} label="진화" onClick={onBuyForm} />
+                          <BuyButton cost={f.cost} gems={save.gems} label="Evolve" onClick={onBuyForm} />
                         </div>
                       ) : (
                         <div className="rounded-xl bg-black/40 py-2 text-sm font-bold text-white/40">
@@ -239,16 +239,16 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                         </div>
                         <p className="mt-1 text-sm text-white/65">{f.desc}</p>
                         <p className="mt-1 text-sm font-bold text-emerald-300">
-                          레벨당 {f.perLevel}
+                          Per level: {f.perLevel}
                           {f.key === "mine" && lvl > 0 && (
-                            <span className="ml-2 text-white/60">(현재 분당 {(lvl * MINE_RATE).toFixed(1)} 젬)</span>
+                            <span className="ml-2 text-white/60">(now {(lvl * MINE_RATE).toFixed(1)}/min)</span>
                           )}
                         </p>
                       </div>
                       <BuyButton
                         cost={cost}
                         gems={save.gems}
-                        label={lvl === 0 ? "건설" : "확장"}
+                        label={lvl === 0 ? "Build" : "Expand"}
                         onClick={() => onBuyFacility(f.key)}
                       />
                     </div>
@@ -256,7 +256,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                 })}
               </div>
               <div>
-                <h3 className="mb-2 text-lg font-black text-yellow-200">🗺️ 던전 지도</h3>
+                <h3 className="mb-2 text-lg font-black text-yellow-200">🗺️ Dungeon Map</h3>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {FLOORS.map((fl, i) => {
                     const cleared = i < save.cleared;
@@ -280,7 +280,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                             {fl.heroName} · HP {fl.heroHp} · 💎 {fl.reward}
                           </div>
                         </div>
-                        <div className="text-sm font-bold">{cleared ? "✅ 정복" : open ? "⚔️ 진행 가능" : "🔒"}</div>
+                        <div className="text-sm font-bold">{cleared ? "✅ Cleared" : open ? "⚔️ Unlocked" : "🔒"}</div>
                       </div>
                     );
                   })}

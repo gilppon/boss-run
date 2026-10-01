@@ -1,4 +1,4 @@
-// React UI <-> Phaser 씬 사이의 아주 작은 이벤트 버스
+// A very small event bus between the React UI and the Phaser scene
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Handler = (...args: any[]) => void;
 

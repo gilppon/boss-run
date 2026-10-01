@@ -69,11 +69,11 @@ export default function MainMenu({
     >
       <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/85" />
       <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 py-4 sm:py-6">
-        {/* 상단 바 */}
+        {/* top bar */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 rounded-full border-2 border-violet-400/60 bg-black/60 px-5 py-1.5 text-xl font-black tabular-nums text-violet-200 shadow-lg">
             💎 {save.gems.toLocaleString()}
-            <span className="text-xs font-bold text-white/40">다크젬</span>
+            <span className="text-xs font-bold text-white/40">GEMS</span>
           </div>
           <div className="flex items-center gap-2">
             {save.facilities.mine > 0 && (
@@ -86,42 +86,42 @@ export default function MainMenu({
                     : "bg-black/50 text-white/40"
                 }`}
               >
-                ⛏️ 광산 수익 {pending > 0 ? `+${pending} 수령` : "적립 중"}
+                ⛏️ Mine {pending > 0 ? `+${pending}` : "filling"}
               </button>
             )}
             <button
               onClick={onClaimDaily}
               disabled={!daily.available}
-              title={DAILY_REWARDS.map((v, i) => `${i + 1}일차: ${v}젬`).join(" · ")}
+              title={DAILY_REWARDS.map((v, i) => `Day ${i + 1}: ${v} gems`).join(" · ")}
               className={`rounded-full border-2 border-[#1b1020] px-4 py-1.5 text-sm font-black transition ${
                 daily.available
                   ? "animate-pulse bg-gradient-to-b from-amber-300 to-orange-600 text-black hover:brightness-110"
                   : "bg-black/50 text-white/40"
               }`}
             >
-              🎁 {daily.available ? `+${daily.amount} 수령 (${daily.streakDay}일째)` : `출석 ${daily.streakDay}일째`}
+              🎁 {daily.available ? `+${daily.amount} (Day ${daily.streakDay})` : `Day ${daily.streakDay}`}
             </button>
             <button onClick={onHelp} className="rounded-full border-2 border-[#1b1020] bg-black/60 px-4 py-1.5 text-sm font-bold hover:bg-black/80">
-              ❓ 방법
+              ❓ How
             </button>
             <button onClick={onToggleSound} className="rounded-full border-2 border-[#1b1020] bg-black/60 px-3 py-1.5 text-sm hover:bg-black/80">
               {save.soundOn ? "🔊" : "🔇"}
             </button>
             <button
               onClick={onToggleFx}
-              title={save.lowFx ? "이펙트 절약 모드 켜짐" : "이펙트 절약 모드 끔"}
+              title={save.lowFx ? "Low FX mode is on" : "Low FX mode is off"}
               className={`rounded-full border-2 border-[#1b1020] px-3 py-1.5 text-sm hover:bg-black/80 ${
                 save.lowFx ? "bg-emerald-700" : "bg-black/60"
               }`}
             >
-              {save.lowFx ? "✨ 절약" : "✨ 풍부"}
+              {save.lowFx ? "✨ Lean" : "✨ Full"}
             </button>
           </div>
         </div>
 
-        {/* 타이틀 */}
+        {/* title */}
         <header className="mt-4 text-center sm:mt-6">
-          <div className="text-xs font-bold tracking-[0.5em] text-orange-300/80">역발상 쿠파 모드</div>
+          <div className="text-xs font-bold tracking-[0.5em] text-orange-300/80">REVERSE KUPA</div>
           <h1 className="title-glow mt-1 text-5xl font-black leading-none tracking-tight sm:text-7xl">
             <span className="bg-gradient-to-b from-yellow-200 via-orange-400 to-red-600 bg-clip-text text-transparent">
               REVERSE BOSS
@@ -132,15 +132,15 @@ export default function MainMenu({
             </span>
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm text-white/75 sm:text-base">
-            용사가 공주를 구하러 온다고? 이번엔 <b className="text-rose-300">네가 마왕</b>이다.
+            A hero is coming to save the princess? This time <b className="text-rose-300">you're the demon</b>.
             <br />
-            쫓아오는 용사 앞에 <b className="text-orange-300">용암·가시·졸개</b>를 즉석 설치해 물리쳐라!
+            Drop <b className="text-orange-300">lava, spikes and minions</b> in his path and wipe him out!
           </p>
         </header>
 
-        {/* 메인 그리드 */}
+        {/* main grid */}
         <main className="mt-5 grid flex-1 gap-4 lg:grid-cols-[320px_1fr]">
-          {/* 보스 카드 */}
+          {/* boss card */}
           <section className="rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
             <div className="relative flex justify-center">
               <div className="float-y">
@@ -151,7 +151,7 @@ export default function MainMenu({
                   onClick={() => onShop("boss")}
                   className="absolute right-0 top-0 animate-bounce rounded-full border-2 border-[#1b1020] bg-yellow-300 px-3 py-1 text-xs font-black text-black shadow-lg"
                 >
-                  ⬆ 진화 가능!
+                  ⬆ Evolve!
                 </button>
               )}
             </div>
@@ -160,20 +160,20 @@ export default function MainMenu({
               <div className="text-xs tracking-[0.3em] text-white/40">{form.title.toUpperCase()}</div>
             </div>
             <div className="mt-3 space-y-1.5">
-              <StatBar label="체력" pct={form.maxHp / maxOf("maxHp")} color="#f87171" value={`${form.maxHp}`} />
+              <StatBar label="HP" pct={form.maxHp / maxOf("maxHp")} color="#f87171" value={`${form.maxHp}`} />
               <StatBar
-                label="마나"
+                label="Mana"
                 pct={(form.maxMana + 12 * save.facilities.well) / (maxOf("maxMana") + 60)}
                 color="#a78bfa"
                 value={`${form.maxMana + 12 * save.facilities.well}`}
               />
               <StatBar
-                label="재생"
+                label="Regen"
                 pct={(form.manaRegen + 1.2 * save.facilities.well) / (maxOf("manaRegen") + 6)}
                 color="#60a5fa"
                 value={`${(form.manaRegen + 1.2 * save.facilities.well).toFixed(1)}/s`}
               />
-              <StatBar label="포효" pct={form.roarPower / maxOf("roarPower")} color="#fb923c" value={`x${form.roarPower}`} />
+              <StatBar label="Roar" pct={form.roarPower / maxOf("roarPower")} color="#fb923c" value={`x${form.roarPower}`} />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
@@ -182,35 +182,35 @@ export default function MainMenu({
                   canUpgradeSomething ? "ring-2 ring-yellow-300/70" : ""
                 }`}
               >
-                🛒 마왕성 강화
+                🛒 Upgrade
               </button>
               <button
                 onClick={() => onShop("dungeon")}
                 className="rounded-xl border-[3px] border-[#1b1020] bg-gradient-to-b from-emerald-500 to-teal-700 py-2 text-sm font-black hover:brightness-110"
               >
-                🏰 던전 확장
+                🏰 Expand
               </button>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-white/5 py-1.5">
-                <div className="text-white/40">출격</div>
+                <div className="text-white/40">Runs</div>
                 <div className="text-base font-black tabular-nums">{save.stats.runs}</div>
               </div>
               <div className="rounded-lg bg-white/5 py-1.5">
-                <div className="text-white/40">용사 퇴치</div>
+                <div className="text-white/40">Heroes Slain</div>
                 <div className="text-base font-black tabular-nums">{save.stats.heroesDefeated}</div>
               </div>
               <div className="rounded-lg bg-white/5 py-1.5">
-                <div className="text-white/40">누적 💎</div>
+                <div className="text-white/40">Total 💎</div>
                 <div className="text-base font-black tabular-nums">{save.totalEarned}</div>
               </div>
             </div>
           </section>
 
-          {/* 던전 층 선택 */}
+          {/* floor select */}
           <section className="flex flex-col rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
             <h2 className="mb-3 flex items-center gap-2 text-xl font-black text-yellow-200">
-              🗺️ 던전 — 용사를 맞이할 층을 고르세요
+              🗺️ Dungeon — pick your hero's floor
             </h2>
             <div className="grid flex-1 gap-2">
               {FLOORS.map((f, i) => {
@@ -243,12 +243,12 @@ export default function MainMenu({
                       <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-bold">
                         <span className="text-emerald-300">🧑‍🔧 {f.heroName}</span>
                         <span className="text-rose-300">HP {f.heroHp}</span>
-                        <span className="text-sky-300">거리 {(f.length / 100).toFixed(0)}m</span>
+                        <span className="text-sky-300">Dist {(f.length / 100).toFixed(0)}m</span>
                         <span className="text-violet-300">💎 {f.reward}+</span>
                       </div>
                     </div>
                     <div className="text-right text-xs font-bold">
-                      {cleared ? <span className="text-emerald-300">✅ 정복</span> : open ? <span className="text-orange-300">도전 가능</span> : <span className="text-white/40">이전 층 클리어 필요</span>}
+                      {cleared ? <span className="text-emerald-300">✅ Cleared</span> : open ? <span className="text-orange-300">Open</span> : <span className="text-white/40">Clear the floor above</span>}
                     </div>
                   </button>
                 );
@@ -258,35 +258,35 @@ export default function MainMenu({
               onClick={() => onStart(selected)}
               className="start-btn mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 via-red-500 to-red-700 py-4 text-2xl font-black tracking-wide shadow-[0_6px_0_#5a0f14] transition hover:brightness-110 active:translate-y-1 active:shadow-[0_2px_0_#5a0f14]"
             >
-              ⚔️ 출격! — {floor.sub}
+              ⚔️ DEPLOY! — {floor.sub}
             </button>
           </section>
         </main>
 
         <footer className="mt-4 flex items-center justify-between text-xs text-white/40">
-          <span>마우스 클릭/드래그 · 1·2·3 트랩 선택 · Space 포효</span>
+          <span>Click / drag · 1·2·3 pick a trap · Space to roar</span>
           <button onClick={() => setShowReset(true)} className="underline decoration-dotted hover:text-white/70">
-            데이터 초기화
+            Reset data
           </button>
         </footer>
       </div>
 
-      {/* 데이터 초기화 확인 모달 (포털 iframe에서는 window.confirm이 차단되므로 인게임 UI 사용) */}
+      {/* reset confirm modal (window.confirm is blocked in portal iframes, so we use in-game UI) */}
       {showReset && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowReset(false)} />
           <div className="relative w-full max-w-sm rounded-2xl border-2 border-[#1b1020] bg-gradient-to-b from-[#2a1030] to-[#12060f] p-6 text-center shadow-2xl">
             <div className="text-4xl">⚠️</div>
-            <h2 className="mt-2 text-xl font-black text-white">정말 초기화할까요?</h2>
+            <h2 className="mt-2 text-xl font-black text-white">Reset for real?</h2>
             <p className="mt-1 text-sm text-white/60">
-              저장된 진행 상황(젬·트랩·던전·기록)이 모두 사라집니다.
+              All progress (gems, traps, dungeon, records) is gone for good.
             </p>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
                 onClick={() => setShowReset(false)}
                 className="rounded-xl border-2 border-[#1b1020] bg-white/10 py-2.5 font-black text-white hover:bg-white/20"
               >
-                취소
+                Cancel
               </button>
               <button
                 onClick={() => {
@@ -295,7 +295,7 @@ export default function MainMenu({
                 }}
                 className="rounded-xl border-2 border-[#1b1020] bg-gradient-to-b from-red-500 to-red-700 py-2.5 font-black text-white hover:brightness-110"
               >
-                초기화
+                Reset
               </button>
             </div>
           </div>

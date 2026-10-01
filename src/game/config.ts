@@ -7,21 +7,21 @@ export interface TrapDef {
   color: string;
   hotkey: string;
   desc: string;
-  baseCost: number; // 마나 비용
+  baseCost: number; // mana cost
   baseDamage: number;
   dmgPerLevel: number;
-  unlockCost: number; // 다크젬
-  upgradeBase: number; // 다크젬
+  unlockCost: number; // dark gems
+  upgradeBase: number; // dark gems
 }
 
 export const TRAP_DEFS: Record<TrapType, TrapDef> = {
   Lava: {
-    name: "용암 웅덩이",
-    short: "용암",
+    name: "Lava Pit",
+    short: "Lava",
     icon: "🌋",
     color: "#ff6a1f",
     hotkey: "1",
-    desc: "바닥에 용암을 판다. 드래그로 넓게 깔수록 용사가 뛰어넘기 힘들다.",
+    desc: "Pours lava on the floor. The wider you drag, the harder the hero jumps it.",
     baseCost: 22,
     baseDamage: 24,
     dmgPerLevel: 8,
@@ -29,12 +29,12 @@ export const TRAP_DEFS: Record<TrapType, TrapDef> = {
     upgradeBase: 60,
   },
   Spike: {
-    name: "낙하 가시",
-    short: "가시",
+    name: "Drop Spikes",
+    short: "Spikes",
     icon: "🗡️",
     color: "#cbd5e1",
     hotkey: "2",
-    desc: "천장에 매달려 있다가 용사가 다가오면 떨어진다. 피해도 멈칫하게 만든다.",
+    desc: "Hangs from the ceiling and drops when the hero closes in. Hurts, and stuns.",
     baseCost: 16,
     baseDamage: 22,
     dmgPerLevel: 7,
@@ -42,12 +42,12 @@ export const TRAP_DEFS: Record<TrapType, TrapDef> = {
     upgradeBase: 70,
   },
   Minion: {
-    name: "화염 졸개",
-    short: "졸개",
+    name: "Flame Minion",
+    short: "Minion",
     icon: "👺",
     color: "#f43f5e",
     hotkey: "3",
-    desc: "불을 뿜는 졸개. 밟히면 죽지만, 레벨 3부터 가시 투구로 밟은 용사도 아프다.",
+    desc: "A minion that spits fire. Step on it and it dies, but from Lv.3 the spiked helm bites stompers too.",
     baseCost: 30,
     baseDamage: 9,
     dmgPerLevel: 3,
@@ -58,9 +58,9 @@ export const TRAP_DEFS: Record<TrapType, TrapDef> = {
 
 export const BOSS_FORMS: BossFormDef[] = [
   {
-    name: "꼬마 마왕",
+    name: "Lil' Demon",
     title: "Imp Lord",
-    desc: "아직 귀여운 초보 마왕. 도망치기엔 충분하다.",
+    desc: "Still a cute beginner demon. Plenty fast enough to run.",
     cost: 0,
     maxHp: 100,
     maxMana: 100,
@@ -75,9 +75,9 @@ export const BOSS_FORMS: BossFormDef[] = [
     aura: false,
   },
   {
-    name: "지옥 군주",
+    name: "Hell King",
     title: "Hellfire Baron",
-    desc: "덩치가 커지고 체력·마나 재생이 늘어난다.",
+    desc: "Grows a size. More HP, faster mana.",
     cost: 350,
     maxHp: 145,
     maxMana: 120,
@@ -92,9 +92,9 @@ export const BOSS_FORMS: BossFormDef[] = [
     aura: false,
   },
   {
-    name: "심연의 대공",
+    name: "Abyss Lord",
     title: "Abyss Sovereign",
-    desc: "박쥐 날개가 돋아난다. 포효가 더 멀리 밀어낸다.",
+    desc: "Bat wings sprout. Your roar shoves the hero further.",
     cost: 1000,
     maxHp: 195,
     maxMana: 145,
@@ -109,9 +109,9 @@ export const BOSS_FORMS: BossFormDef[] = [
     aura: false,
   },
   {
-    name: "종말의 황제",
+    name: "Last Emperor",
     title: "Doom Emperor",
-    desc: "왕관과 지옥불 오라를 두른 최종 폼. 던전 전체가 떤다.",
+    desc: "Crown and hellfire aura. The final form. The whole dungeon shakes.",
     cost: 2600,
     maxHp: 270,
     maxMana: 185,
@@ -130,11 +130,11 @@ export const BOSS_FORMS: BossFormDef[] = [
 export const FLOORS: FloorDef[] = [
   {
     id: 0,
-    name: "초보 용사의 길",
-    sub: "지하 1층",
-    desc: "막 모험을 시작한 풋내기 용사. 아직은 점프도 어설프다.",
+    name: "Rookie's Road",
+    sub: "B1",
+    desc: "A rookie who just picked up a sword. Still clumsy with jumps.",
     length: 9000,
-    heroName: "풋내기 용사",
+    heroName: "Rookie Hero",
     heroHp: 90,
     heroSpeed: 262,
     heroJump: 820,
@@ -147,11 +147,11 @@ export const FLOORS: FloorDef[] = [
   },
   {
     id: 1,
-    name: "수상한 지하 수로",
-    sub: "지하 2층",
-    desc: "초록 파이프 사이를 누비는 배관공 용사. 점프가 정확해진다.",
+    name: "Sketchy Sewers",
+    sub: "B2",
+    desc: "A plumber hero weaving between green pipes. His jumps get accurate.",
     length: 10200,
-    heroName: "배관공 용사",
+    heroName: "Plumber Hero",
     heroHp: 130,
     heroSpeed: 268,
     heroJump: 835,
@@ -164,11 +164,11 @@ export const FLOORS: FloorDef[] = [
   },
   {
     id: 2,
-    name: "불꽃 성채",
-    sub: "지하 3층",
-    desc: "용암에 단련된 용사. 가시를 눈치채고 멈춰 서기도 한다.",
+    name: "Ember Gallery",
+    sub: "B3",
+    desc: "Fire-forged. Spots spikes and even stops to think about them.",
     length: 11400,
-    heroName: "화염 단련 용사",
+    heroName: "Flameforged Hero",
     heroHp: 180,
     heroSpeed: 274,
     heroJump: 850,
@@ -181,11 +181,11 @@ export const FLOORS: FloorDef[] = [
   },
   {
     id: 3,
-    name: "심연의 회랑",
-    sub: "지하 4층",
-    desc: "거의 프로 수준의 용사. 넓은 용암도 겨우 뛰어넘는다.",
+    name: "Abyssal Halls",
+    sub: "B4",
+    desc: "Almost pro level. Barely clears even wide lava.",
     length: 12600,
-    heroName: "심연 돌파 용사",
+    heroName: "Abyss Breaker",
     heroHp: 240,
     heroSpeed: 280,
     heroJump: 865,
@@ -198,11 +198,11 @@ export const FLOORS: FloorDef[] = [
   },
   {
     id: 4,
-    name: "왕의 대성전",
-    sub: "지하 5층",
-    desc: "전설의 슈퍼 용사. 진짜 실력으로 트랩을 조합해야 한다.",
+    name: "The King's Cathedral",
+    sub: "B5",
+    desc: "A legendary super hero. This one needs real trap combos.",
     length: 13800,
-    heroName: "전설의 슈퍼 용사",
+    heroName: "Legendary Superhero",
     heroHp: 320,
     heroSpeed: 286,
     heroJump: 880,
@@ -228,28 +228,28 @@ export interface FacilityDef {
 export const FACILITIES: FacilityDef[] = [
   {
     key: "mine",
-    name: "다크젬 광산",
+    name: "Dark Gem Mine",
     icon: "⛏️",
-    desc: "자리를 비워도 젬이 쌓인다. (최대 8시간 분량 보관)",
-    perLevel: "분당 +0.6 젬",
+    desc: "Gems pile up even offline. (Stores up to 8 hours)",
+    perLevel: "+0.6 gems/min",
     baseCost: 140,
     growth: 1.9,
   },
   {
     key: "well",
-    name: "마력의 샘",
+    name: "Mana Spring",
     icon: "🔮",
-    desc: "런 시작 시 최대 마나와 마나 재생이 증가한다.",
-    perLevel: "최대 마나 +12 / 재생 +1.2",
+    desc: "Raises max mana and mana regen at the start of a run.",
+    perLevel: "Max mana +12 / regen +1.2",
     baseCost: 110,
     growth: 1.8,
   },
   {
     key: "vault",
-    name: "마왕성 보물고",
+    name: "Castle Vault",
     icon: "💰",
-    desc: "런이 끝나고 얻는 모든 다크젬 보상이 늘어난다.",
-    perLevel: "젬 보상 +12%",
+    desc: "Every dark gem reward you earn goes up.",
+    perLevel: "Gem reward +12%",
     baseCost: 160,
     growth: 2,
   },

@@ -22,8 +22,8 @@ function outlinePath(c: Ctx, fill: string | CanvasGradient, stroke = "#1b1020", 
 }
 
 function drawMinion(c: Ctx, helm: boolean) {
-  // 48 x 52, 왼쪽을 바라보는 꼬마 악마
-  // 등 가시
+  // 48 x 52, a little devil facing left
+  // back spikes
   c.beginPath();
   c.moveTo(30, 18);
   c.lineTo(38, 8);
@@ -32,26 +32,26 @@ function drawMinion(c: Ctx, helm: boolean) {
   c.lineTo(42, 32);
   c.closePath();
   outlinePath(c, "#7a1524");
-  // 발
+  // feet
   c.beginPath();
   c.ellipse(16, 49, 8, 4, 0, 0, Math.PI * 2);
   outlinePath(c, "#3b0d18");
   c.beginPath();
   c.ellipse(32, 49, 8, 4, 0, 0, Math.PI * 2);
   outlinePath(c, "#3b0d18");
-  // 몸
+  // body
   const g = c.createRadialGradient(20, 28, 2, 24, 32, 20);
   g.addColorStop(0, "#ff6b5e");
   g.addColorStop(1, "#c0313f");
   c.beginPath();
   c.ellipse(24, 32, 18, 17, 0, 0, Math.PI * 2);
   outlinePath(c, g);
-  // 배
+  // belly
   c.beginPath();
   c.ellipse(21, 40, 9, 7, 0, 0, Math.PI * 2);
   c.fillStyle = "#f7b58a";
   c.fill();
-  // 뿔
+  // horn
   if (!helm) {
     c.beginPath();
     c.moveTo(9, 20);
@@ -66,7 +66,7 @@ function drawMinion(c: Ctx, helm: boolean) {
     c.closePath();
     outlinePath(c, "#f5e6c8");
   }
-  // 눈
+  // eyes
   c.beginPath();
   c.ellipse(13, 26, 6, 6.5, 0, 0, Math.PI * 2);
   c.fillStyle = "#fff";
@@ -86,7 +86,7 @@ function drawMinion(c: Ctx, helm: boolean) {
   c.beginPath();
   c.arc(24, 27, 2.4, 0, Math.PI * 2);
   c.fill();
-  // 화난 눈썹
+  // angry eyebrows
   c.lineWidth = 3;
   c.strokeStyle = "#3b0d18";
   c.beginPath();
@@ -97,7 +97,7 @@ function drawMinion(c: Ctx, helm: boolean) {
   c.moveTo(32, 17);
   c.lineTo(21, 22);
   c.stroke();
-  // 불 뿜는 입
+  // fire-spitting mouth
   c.beginPath();
   c.ellipse(9, 38, 5, 6, 0, 0, Math.PI * 2);
   c.fillStyle = "#2a0810";
@@ -107,7 +107,7 @@ function drawMinion(c: Ctx, helm: boolean) {
   c.fillStyle = "#ffb02e";
   c.fill();
   if (helm) {
-    // 가시 투구
+    // spiked helm
     c.beginPath();
     c.moveTo(3, 24);
     c.quadraticCurveTo(4, 6, 22, 5);
@@ -129,7 +129,7 @@ function drawMinion(c: Ctx, helm: boolean) {
 }
 
 export function createTextures(scene: Phaser.Scene) {
-  // 부드러운 원형 파티클
+  // soft round particle
   canvasTex(scene, "dot", 32, 32, (c) => {
     const g = c.createRadialGradient(16, 16, 0, 16, 16, 16);
     g.addColorStop(0, "rgba(255,255,255,1)");
@@ -139,7 +139,7 @@ export function createTextures(scene: Phaser.Scene) {
     c.fillRect(0, 0, 32, 32);
   });
 
-  // 캐릭터 그림자
+  // character shadow
   canvasTex(scene, "shadow", 96, 20, (c) => {
     const g = c.createRadialGradient(48, 10, 0, 48, 10, 48);
     g.addColorStop(0, "rgba(0,0,0,0.6)");
@@ -151,7 +151,7 @@ export function createTextures(scene: Phaser.Scene) {
     c.restore();
   });
 
-  // 지면 타일 (96 x 170)
+  // ground tile (96 x 170)
   canvasTex(scene, "ground", 96, 170, (c) => {
     c.fillStyle = "#170c13";
     c.fillRect(0, 0, 96, 170);
@@ -167,7 +167,7 @@ export function createTextures(scene: Phaser.Scene) {
         c.fillRect(x + 1, y + 1, 46, 3);
       }
     }
-    // 윗면 슬랩
+    // top slab
     const tg = c.createLinearGradient(0, 0, 0, 18);
     tg.addColorStop(0, "#8a5e74");
     tg.addColorStop(1, "#4d3143");
@@ -179,7 +179,7 @@ export function createTextures(scene: Phaser.Scene) {
     for (let x = 24; x < 96; x += 48) c.fillRect(x, 5, 2, 13);
     c.fillStyle = "rgba(0,0,0,0.4)";
     c.fillRect(0, 16, 96, 2);
-    // 용암 균열
+    // lava cracks
     c.strokeStyle = "rgba(255,122,42,0.6)";
     c.lineWidth = 2;
     c.beginPath();
@@ -199,7 +199,7 @@ export function createTextures(scene: Phaser.Scene) {
     c.fillRect(0, 0, 96, 170);
   });
 
-  // 용암 2프레임 (48 x 124), 가로 주기를 48에 맞춰 이음새가 없다
+  // lava, 2 frames (48 x 124); the horizontal period is 48 so the seam is invisible
   [0, 1].forEach((frame) => {
     canvasTex(scene, `lava${frame}`, 48, 124, (c) => {
       const phase = frame * Math.PI;
@@ -218,14 +218,14 @@ export function createTextures(scene: Phaser.Scene) {
       c.closePath();
       c.fillStyle = g;
       c.fill();
-      // 표면 하이라이트
+      // surface highlight
       c.strokeStyle = "rgba(255,244,170,0.9)";
       c.lineWidth = 2;
       c.beginPath();
       c.moveTo(0, wave(0));
       for (let x = 0; x <= 48; x += 4) c.lineTo(x, wave(x));
       c.stroke();
-      // 기포/흐름
+      // bubbles / flow
       const bubbles = frame === 0 ? [[12, 28, 4], [34, 50, 3], [22, 78, 5]] : [[14, 22, 3], [32, 56, 4], [24, 70, 4]];
       c.fillStyle = "rgba(255,230,120,0.75)";
       for (const [bx, by, br] of bubbles) {
@@ -242,7 +242,7 @@ export function createTextures(scene: Phaser.Scene) {
     });
   });
 
-  // 지면 가시 (48 x 44)
+  // ground spikes (48 x 44)
   canvasTex(scene, "spikeGround", 48, 44, (c) => {
     c.beginPath();
     c.roundRect?.(0, 36, 48, 8, 2);
@@ -274,7 +274,7 @@ export function createTextures(scene: Phaser.Scene) {
     }
   });
 
-  // 매달린(낙하) 가시 (48 x 60) - 아래를 향한다
+  // hanging (drop) spikes (48 x 60) - pointing down
   canvasTex(scene, "spikeDown", 48, 60, (c) => {
     for (let i = 0; i < 3; i++) {
       const cx = 8 + i * 16;
@@ -302,7 +302,7 @@ export function createTextures(scene: Phaser.Scene) {
     c.strokeStyle = "#1b1020";
     c.lineWidth = 2;
     c.strokeRect(1, 13, 46, 8);
-    // 로프 고리
+    // rope loop
     c.beginPath();
     c.arc(24, 8, 6, 0, Math.PI * 2);
     c.lineWidth = 3;
@@ -313,7 +313,7 @@ export function createTextures(scene: Phaser.Scene) {
   canvasTex(scene, "minion", 48, 52, (c) => drawMinion(c, false));
   canvasTex(scene, "minionH", 48, 52, (c) => drawMinion(c, true));
 
-  // 화염구 (왼쪽으로 날아감, 꼬리는 오른쪽)
+  // fireball (flies left, tail on the right)
   canvasTex(scene, "fireball", 44, 26, (c) => {
     const tail = c.createLinearGradient(44, 0, 12, 0);
     tail.addColorStop(0, "rgba(255,90,20,0)");
@@ -336,15 +336,15 @@ export function createTextures(scene: Phaser.Scene) {
     c.fill();
   });
 
-  // 성문(출구) 260 x 420
+  // exit gate 260 x 420
   canvasTex(scene, "exitGate", 260, 420, (c) => {
-    // 빛
+    // glow
     const glow = c.createRadialGradient(130, 250, 10, 130, 250, 150);
     glow.addColorStop(0, "rgba(255,250,200,0.9)");
     glow.addColorStop(1, "rgba(255,200,80,0)");
     c.fillStyle = glow;
     c.fillRect(0, 100, 260, 320);
-    // 기둥
+    // pillars
     c.fillStyle = "#3a2a3c";
     c.fillRect(10, 90, 46, 330);
     c.fillRect(204, 90, 46, 330);
@@ -352,7 +352,7 @@ export function createTextures(scene: Phaser.Scene) {
     c.lineWidth = 3;
     c.strokeRect(10, 90, 46, 330);
     c.strokeRect(204, 90, 46, 330);
-    // 아치
+    // arch
     c.beginPath();
     c.moveTo(10, 130);
     c.quadraticCurveTo(130, -40, 250, 130);
@@ -360,7 +360,7 @@ export function createTextures(scene: Phaser.Scene) {
     c.quadraticCurveTo(130, 30, 56, 130);
     c.closePath();
     outlinePath(c, "#4a3550", "#140a18", 3);
-    // 문 안쪽 (햇빛)
+    // inside of the doorway (daylight)
     c.beginPath();
     c.moveTo(56, 420);
     c.lineTo(56, 130);
@@ -372,7 +372,7 @@ export function createTextures(scene: Phaser.Scene) {
     inner.addColorStop(1, "#ffd15a");
     c.fillStyle = inner;
     c.fill();
-    // 빛 줄기
+    // light rays
     c.strokeStyle = "rgba(255,255,255,0.55)";
     c.lineWidth = 4;
     for (let i = 0; i < 5; i++) {
@@ -381,7 +381,7 @@ export function createTextures(scene: Phaser.Scene) {
       c.lineTo(80 + i * 25, 420);
       c.stroke();
     }
-    // 표지
+    // sign
     c.fillStyle = "#140a18";
     c.fillRect(70, 40, 120, 34);
     c.fillStyle = "#ffcf4a";
@@ -393,7 +393,7 @@ export function createTextures(scene: Phaser.Scene) {
     for (let i = 0; i < 4; i++) c.fillRect(204, 130 + i * 70, 46, 4);
   });
 
-  // 중경 기둥 (반복 타일 640 x 720)
+  // midground pillars (repeating tile 640 x 720)
   canvasTex(scene, "pillars", 640, 720, (c) => {
     for (const px of [110, 430]) {
       const g = c.createLinearGradient(px, 0, px + 84, 0);
@@ -403,7 +403,7 @@ export function createTextures(scene: Phaser.Scene) {
       c.fillRect(px, 0, 84, 720);
       c.fillStyle = "rgba(255,110,50,0.28)";
       c.fillRect(px, 0, 3, 720);
-      // 주두/주초
+      // capital / base
       c.fillStyle = "rgba(20,7,16,0.96)";
       c.fillRect(px - 16, 0, 116, 44);
       c.fillRect(px - 10, 44, 104, 20);
@@ -411,13 +411,13 @@ export function createTextures(scene: Phaser.Scene) {
       c.fillStyle = "rgba(255,110,50,0.22)";
       c.fillRect(px - 16, 44, 116, 2);
       c.fillRect(px - 16, 640, 116, 2);
-      // 홈
+      // flutes
       c.fillStyle = "rgba(0,0,0,0.35)";
       for (let i = 1; i < 4; i++) c.fillRect(px + i * 20, 64, 2, 576);
     }
   });
 
-  // 비네트
+  // vignette
   canvasTex(scene, "vignette", W, H, (c) => {
     const g = c.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.62);
     g.addColorStop(0, "rgba(0,0,0,0)");

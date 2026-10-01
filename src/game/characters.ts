@@ -4,7 +4,7 @@ import type { BossFormDef } from "./types";
 type G = Phaser.GameObjects.Graphics;
 const OUT = 0x1b1020;
 
-/** 배관공 스타일의 용사. 원점 = 발 중앙 */
+/** Plumber-style hero. Origin = center of the feet */
 export class HeroView {
   readonly container: Phaser.GameObjects.Container;
   private legB: G;
@@ -40,23 +40,23 @@ export class HeroView {
 
     this.head = scene.add.graphics();
     this.head.lineStyle(2, OUT, 1);
-    // 얼굴
+    // face
     this.head.fillStyle(0xffc79a, 1);
     this.head.fillCircle(1, -54, 11);
     this.head.strokeCircle(1, -54, 11);
-    // 코
+    // nose
     this.head.fillStyle(0xf5a97a, 1);
     this.head.fillCircle(11, -52, 4.2);
     this.head.strokeCircle(11, -52, 4.2);
-    // 콧수염
+    // mustache
     this.head.fillStyle(0x4a2a12, 1);
     this.head.fillEllipse(7, -47, 14, 5);
-    // 눈
+    // eye
     this.head.fillStyle(0xffffff, 1);
     this.head.fillEllipse(6, -57, 5.5, 7);
     this.head.fillStyle(0x111111, 1);
     this.head.fillCircle(7.5, -57, 1.8);
-    // 모자
+    // hat
     this.head.fillStyle(0xe8332a, 1);
     this.head.beginPath();
     this.head.arc(1, -56, 12, Math.PI, Math.PI * 2, false);
@@ -144,7 +144,7 @@ export class HeroView {
   }
 }
 
-/** 마왕 보스. 원점 = 발 중앙, 기본 키 ~190px */
+/** Demon boss. Origin = center of the feet, default height ~190px */
 export class BossView {
   readonly container: Phaser.GameObjects.Container;
   private legB: G;
@@ -198,7 +198,7 @@ export class BossView {
       parts.push(this.wings);
     }
 
-    // 꼬리
+    // tail
     this.tail = scene.add.graphics({ x: -40, y: -62 });
     this.tail.lineStyle(9, p.body, 1);
     this.tail.beginPath();
@@ -215,10 +215,10 @@ export class BossView {
     this.armB = this.makeArm(scene, p.accent, p.horn);
     this.legB = this.makeLeg(scene, -16, p.accent);
 
-    // 몸통
+    // torso
     const body = scene.add.graphics();
     body.lineStyle(4, OUT, 1);
-    // 등 가시
+    // back spikes
     body.fillStyle(p.horn, 1);
     for (let i = 0; i < 4; i++) {
       const y = -118 + i * 20;
@@ -234,7 +234,7 @@ export class BossView {
     body.strokeEllipse(12, -72, 60, 68);
     body.lineStyle(2, OUT, 0.35);
     for (let i = 0; i < 3; i++) body.lineBetween(-2, -88 + i * 16, 26, -88 + i * 16);
-    // 허리띠
+    // belt
     body.fillStyle(p.accent, 1);
     body.fillRect(-42, -54, 84, 9);
     body.fillStyle(0xffd23f, 1);
@@ -244,20 +244,20 @@ export class BossView {
 
     this.legF = this.makeLeg(scene, 16, p.body);
 
-    // 머리
+    // head
     const head = scene.add.graphics();
     head.lineStyle(4, OUT, 1);
-    // 뿔
+    // horn
     head.fillStyle(p.horn, 1);
     head.fillTriangle(-8, -156, -22, -196, 8, -160);
     head.strokeTriangle(-8, -156, -22, -196, 8, -160);
     head.fillTriangle(22, -160, 42, -198, 40, -154);
     head.strokeTriangle(22, -160, 42, -198, 40, -154);
-    // 얼굴
+    // face
     head.fillStyle(p.body, 1);
     head.fillEllipse(14, -138, 84, 66);
     head.strokeEllipse(14, -138, 84, 66);
-    // 눈 (발광)
+    // eyes (glowing)
     head.fillStyle(p.eye, 1);
     head.lineStyle(3, OUT, 1);
     head.fillEllipse(6, -142, 20, 22);
@@ -267,11 +267,11 @@ export class BossView {
     head.fillStyle(0x110008, 1);
     head.fillEllipse(9, -142, 7, 16);
     head.fillEllipse(37, -142, 7, 16);
-    // 눈썹
+    // eyebrows
     head.lineStyle(6, OUT, 1);
     head.lineBetween(-6, -158, 16, -150);
     head.lineBetween(46, -158, 24, -150);
-    // 입 + 송곳니
+    // mouth + fangs
     head.fillStyle(0x1a0410, 1);
     head.lineStyle(3, OUT, 1);
     head.beginPath();
@@ -286,7 +286,7 @@ export class BossView {
     head.fillTriangle(2, -126, 10, -126, 6, -117);
     head.fillTriangle(30, -126, 38, -126, 34, -117);
     head.fillTriangle(16, -126, 22, -126, 19, -120);
-    // 콧구멍
+    // nostrils
     head.fillStyle(p.accent, 1);
     head.fillCircle(16, -134, 2);
     head.fillCircle(24, -134, 2);
@@ -331,7 +331,7 @@ export class BossView {
     g.fillStyle(0x2a0f1a, 1);
     g.fillEllipse(6, 44, 40, 16);
     g.strokeEllipse(6, 44, 40, 16);
-    // 발톱
+    // claws
     g.fillStyle(0xf5e6c8, 1);
     g.fillTriangle(20, 40, 30, 46, 20, 50);
     return g;

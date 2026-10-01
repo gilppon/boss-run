@@ -44,10 +44,10 @@ export type PlaceCheck = "ok" | "occupied" | "zone" | "locked";
 const FIRE_COLORS = [0xffe066, 0xff9a1f, 0xff5a1f];
 
 /**
- * 트랩 생성/갱신/충돌을 담당한다.
- * - 용암: 지면에 뚫린 구덩이 (넓으면 점프로 못 넘음)
- * - 낙하 가시: 매달려 있다가 용사가 접근하면 떨어진다
- * - 화염 졸개: 화염구를 발사, 밟히면 죽는다
+ * Owns trap spawning, updating and collisions.
+ * - Lava: a pit carved into the ground (too wide and it cannot be jumped)
+ * - Drop spikes: hang from the ceiling and fall once the hero gets close
+ * - Flame minion: shoots fireballs, dies if stomped
  */
 export class TrapManager {
   readonly traps: TrapEntity[] = [];
@@ -148,7 +148,7 @@ export class TrapManager {
     }
   }
 
-  /** AI용: 서로 붙어 있는 트랩들을 하나의 장애물 덩어리로 묶는다 */
+  /** For the AI: group adjacent traps into a single obstacle blob */
   getClusters(): Cluster[] {
     const list: { cell: number; t: TrapEntity; h: number }[] = [];
     for (const t of this.traps) {
@@ -200,7 +200,7 @@ export class TrapManager {
   }
 
   update(dt: number, hero: HeroAIController, cullX: number) {
-    // 용암 표면 애니메이션
+    // lava surface animation
     this.lavaT += dt;
     if (this.lavaT > 0.26) {
       this.lavaT = 0;
@@ -247,7 +247,7 @@ export class TrapManager {
       if (fb.x < cullX - 120) this.killFireball(fb, false);
     }
 
-    // 정리
+    // cleanup
     for (let i = this.fireballs.length - 1; i >= 0; i--) if (!this.fireballs[i].alive) this.fireballs.splice(i, 1);
     let changed = false;
     for (let i = this.traps.length - 1; i >= 0; i--) {
@@ -351,7 +351,7 @@ export class TrapManager {
 
     if (adx < 30) {
       if (!hero.onGround && hero.vy > 0 && hero.prevY <= top + 8 && hero.y >= top) {
-        // 밟기!
+        // stomp!
         hero.bounce(540);
         t.hp -= 1;
         sfx.stomp();

@@ -1,4 +1,4 @@
-// WebAudio 기반의 가벼운 효과음 (외부 에셋 없음)
+// Lightweight WebAudio sound effects (no external assets)
 let ctx: AudioContext | null = null;
 let enabled = true;
 

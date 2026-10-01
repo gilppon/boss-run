@@ -43,7 +43,7 @@ export function persistSave(s: SaveData) {
   try {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
-    /* 저장소를 못 쓰는 환경은 무시 */
+    /* environments where storage is unavailable are ignored */
   }
 }
 

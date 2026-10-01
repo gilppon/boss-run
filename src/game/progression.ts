@@ -30,7 +30,7 @@ export function trapStats(type: TrapType, level: number): TrapStats {
   return s;
 }
 
-/** 다음 레벨업(또는 해금) 비용. 최대 레벨이면 null */
+/** Cost of the next level-up (or unlock). null at max level */
 export function trapUpgradeCost(type: TrapType, level: number): number | null {
   if (level >= MAX_TRAP_LEVEL) return null;
   const d = TRAP_DEFS[type];
@@ -88,8 +88,8 @@ export function computeReward(save: SaveData, floorIndex: number, r: RunResult):
   return { base, bonus, vaultPct, total };
 }
 
-export const MINE_RATE = 0.6; // 레벨당 분당 젬
-export const MINE_CAP_MIN = 480; // 최대 8시간 보관 (재접속 명분)
+export const MINE_RATE = 0.6; // gems per minute per level
+export const MINE_CAP_MIN = 480; // stores up to 8 hours (a reason to come back)
 
 export function pendingMine(save: SaveData, now: number): number {
   const lvl = save.facilities.mine;
@@ -98,7 +98,7 @@ export function pendingMine(save: SaveData, now: number): number {
   return Math.max(0, Math.floor(minutes * MINE_RATE * lvl));
 }
 
-// ---- 구매/변경 함수 (불변 업데이트) ----
+// ---- purchase / mutation helpers (immutable updates) ----
 
 export function applyRunEnd(save: SaveData, floorIndex: number, r: RunResult, reward: number): SaveData {
   return {
@@ -142,7 +142,7 @@ export function buyFacility(save: SaveData, key: "mine" | "well" | "vault"): Sav
     gems: save.gems - cost,
     facilities: { ...save.facilities, [key]: lvl + 1 },
   };
-  // 광산을 처음 짓는 순간부터 수익 계산 시작
+  // mining starts accruing the moment the mine is first built
   if (key === "mine" && lvl === 0) next.lastCollect = Date.now();
   return next;
 }
@@ -153,7 +153,7 @@ export function collectMine(save: SaveData, now: number): { save: SaveData; amou
   return { save: { ...addGems(save, amount), lastCollect: now }, amount };
 }
 
-// ---- 일일보상 (7일 사이클, 자정 기준 연속 출석) ----
+// ---- daily reward (7-day cycle, consecutive check-ins based on local midnight) ----
 export const DAILY_REWARDS = [30, 40, 55, 70, 90, 120, 200];
 
 function dayKey(t: number): string {

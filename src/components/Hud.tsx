@@ -44,7 +44,7 @@ function Bar({
 }
 
 export default function Hud({ config, hud, paused, ended, soundOn, showHint, onPause, onToggleSound }: Props) {
-  // 첫판 미션: 트랩 1개 설치 감지 → 완료 연출 5초 (hooks는 early return 이전에)
+  // First-run mission: detect 1 trap placed → celebrate for 5s (hooks before the early return)
   const placed = hud?.trapsPlaced ?? 0;
   const didRef = useRef(false);
   const [celebrate, setCelebrate] = useState(false);
@@ -68,12 +68,12 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
       {danger && (
         <div className="danger-pulse absolute inset-0" style={{ boxShadow: "inset 0 0 120px 30px rgba(255,30,30,0.55)" }}>
           <div className="absolute left-1/2 top-[150px] -translate-x-1/2 rounded-full bg-red-600/90 px-6 py-1 text-2xl font-black tracking-wide shadow-lg">
-            ⚠ 용사가 코앞이다! 포효를 써라!
+            ⚠ He's on top of you! ROAR!
           </div>
         </div>
       )}
 
-      {/* 좌상단: 보스 HP */}
+      {/* top-left: boss HP */}
       <div className="absolute left-5 top-4 flex w-[380px] items-center gap-3">
         <div className="rounded-2xl border-2 border-[#1b1020] bg-black/50 p-1">
           <BossPortrait form={config.boss.form} size={64} />
@@ -89,7 +89,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
         </div>
       </div>
 
-      {/* 우상단: 용사 HP */}
+      {/* top-right: hero HP */}
       <div className="absolute right-5 top-4 flex w-[380px] flex-row-reverse items-center gap-3 pr-[110px]">
         <div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border-2 border-[#1b1020] bg-black/50 text-4xl">
           🧑‍🔧
@@ -110,7 +110,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
         </div>
       </div>
 
-      {/* 우상단 버튼 */}
+      {/* top-right buttons */}
       <div className="pointer-events-auto absolute right-5 top-4 flex gap-2">
         <button
           tabIndex={-1}
@@ -119,7 +119,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
             onToggleSound();
           }}
           className="h-[34px] w-[34px] rounded-lg border-2 border-[#1b1020] bg-black/60 text-base hover:bg-black/80"
-          title="사운드"
+          title="Sound"
         >
           {soundOn ? "🔊" : "🔇"}
         </button>
@@ -131,14 +131,14 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
               onPause();
             }}
             className="h-[34px] w-[34px] rounded-lg border-2 border-[#1b1020] bg-black/60 text-base hover:bg-black/80"
-            title="일시정지 (Esc)"
+            title="Pause (Esc)"
           >
             {paused ? "▶" : "⏸"}
           </button>
         )}
       </div>
 
-      {/* 상단 중앙: 진행도 */}
+      {/* top-center: progress */}
       <div className="absolute left-1/2 top-[100px] w-[460px] -translate-x-1/2">
         <div className="relative h-3 rounded-full border-2 border-[#1b1020] bg-black/60">
           <div
@@ -154,7 +154,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
           <div className="absolute -right-3 -top-[14px] text-2xl">🚪</div>
         </div>
         <div className="mt-2 text-center text-xs font-bold tracking-widest text-white/60">
-          {hud.started ? `${hud.time.toFixed(1)}s  ·  성문까지 ${Math.round((1 - hud.bossProgress) * 100)}%` : "준비 중..."}
+          {hud.started ? `${hud.time.toFixed(1)}s  ·  to gate ${Math.round((1 - hud.bossProgress) * 100)}%` : "Get ready..."}
         </div>
       </div>
 
@@ -164,10 +164,10 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
         </div>
       )}
 
-      {/* 좌하단: 마나 */}
+      {/* bottom-left: mana */}
       <div className="absolute bottom-5 left-5 w-[300px]">
         <div className="mb-1 flex items-baseline justify-between text-sm font-bold">
-          <span className="text-lg font-black text-violet-300">💜 마나</span>
+          <span className="text-lg font-black text-violet-300">💜 Mana</span>
           <span className="tabular-nums">
             {Math.floor(hud.mana)} / {hud.maxMana}
           </span>
@@ -175,7 +175,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
         <Bar pct={hud.mana / hud.maxMana} from="#c084fc" to="#6366f1" height={22} />
       </div>
 
-      {/* 하단 중앙: 트랩 선택 */}
+      {/* bottom-center: trap select */}
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-3">
         {TRAP_TYPES.map((t) => {
           const d = TRAP_DEFS[t];
@@ -214,7 +214,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
               </div>
               {!locked && (
                 <div className="mt-1 text-[11px] font-bold text-white/60">
-                  Lv.{st.level} · 피해 {st.damage}
+                  Lv.{st.level} · DMG {st.damage}
                 </div>
               )}
             </button>
@@ -222,7 +222,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
         })}
       </div>
 
-      {/* 우하단: 포효 */}
+      {/* bottom-right: roar */}
       <div className="pointer-events-auto absolute bottom-4 right-5">
         <button
           tabIndex={-1}
@@ -245,26 +245,26 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
             />
           )}
           <span className="relative text-3xl leading-none">🗣️</span>
-          <span className="relative text-lg">포효 [Space]</span>
+          <span className="relative text-lg">ROAR [Space]</span>
           <span className="relative text-xs font-bold text-white/80">
-            {roarReady ? "용사를 밀어낸다!" : `${hud.roarCd.toFixed(1)}s`}
+            {roarReady ? "SEND HIM PACKING!" : `${hud.roarCd.toFixed(1)}s`}
           </span>
         </button>
       </div>
 
       {showHint && !ended && placed < 1 && (
         <div className="absolute bottom-[132px] left-1/2 -translate-x-1/2 rounded-2xl border-2 border-yellow-300/70 bg-black/70 px-6 py-3 text-center text-lg font-bold text-yellow-100 shadow-xl">
-          🎯 <b className="text-yellow-300">미션</b> · <b className="text-emerald-300">초록색 구역</b>(용사 앞 바닥)을{" "}
-          <b className="text-yellow-300">클릭 / 드래그</b>해서 트랩 1개 설치!
+          🎯 <b className="text-yellow-300">MISSION</b> · <b className="text-emerald-300">green zone</b> (the ground
+          ahead of the hero) — <b className="text-yellow-300">click / drag</b> to place 1 trap!
           <br />
           <span className="text-sm text-white/70">
-            용암은 넓게 깔수록 못 넘는다 · 용사가 가까워지면 <b>Space</b>로 포효
+            The wider the lava, the harder it jumps · Get close? Press <b>Space</b> to roar
           </span>
         </div>
       )}
       {showHint && !ended && celebrate && (
         <div className="absolute bottom-[132px] left-1/2 -translate-x-1/2 rounded-2xl border-2 border-emerald-300/70 bg-black/70 px-6 py-3 text-center text-lg font-bold text-emerald-100 shadow-xl">
-          ✅ 미션 완료! 이제 용사를 끝까지 막아라!
+          ✅ Mission complete! Now block him all the way!
         </div>
       )}
     </div>

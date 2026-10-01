@@ -1,5 +1,5 @@
-// Poki SDK 훅. 실제 Poki 환경(또는 ?poki 파라미터)이면 SDK를 로드하고,
-// 그렇지 않으면 모의(mock) 광고 UI로 동작한다.
+// Poki SDK hook. On a real Poki environment (or with the ?poki param) the SDK
+// is loaded; otherwise it falls back to the mock ad UI.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 declare global {
@@ -63,7 +63,7 @@ export const Poki = {
           await window.PokiSDK?.init();
           real = true;
         } catch {
-          real = false; // SDK를 못 쓰면 모의 모드
+          real = false; // fall back to mock mode if the SDK won't load
         }
       }
       ready = true;
@@ -83,13 +83,13 @@ export const Poki = {
     if (real && ready) window.PokiSDK?.gameplayStop?.();
   },
 
-  /** 전면 광고(런 사이 휴식 지점에서 호출) */
+  /** Commercial ad (called at the breather point between runs) */
   async commercialBreak(): Promise<void> {
     if (real) {
       try {
         await window.PokiSDK.commercialBreak();
       } catch {
-        /* 광고 실패는 무시 */
+        /* ad failures are ignored */
       }
       return;
     }
@@ -97,7 +97,7 @@ export const Poki = {
     await new Promise<void>((resolve) => adUI!("commercial", () => resolve()));
   },
 
-  /** 보상형 광고. 시청 완료 시 true */
+  /** Rewarded ad. Returns true when watched to completion */
   async rewardedBreak(): Promise<boolean> {
     if (real) {
       try {

@@ -8,17 +8,17 @@ import type { Cluster, TrapManager } from "./TrapManager";
 export type DamageSource = "lava" | "spike" | "fire" | "contact" | "helm";
 
 interface JumpPlan {
-  c0: number; // 이 X(중심) 이상이면 점프
-  b1: number; // 이 X를 지나면 이미 늦음
+  c0: number; // jump once past this X (the centre of the window)
+  b1: number; // past this X it is already too late
 }
 
 /**
- * 용사 AI: 앞에 있는 트랩 덩어리(클러스터)를 스캔해서
- * 점프 곡선(체공 시간/높이)으로 "넘을 수 있는 구간"을 계산하고 점프 타이밍을 잡는다.
- * - 넘을 수 없을 만큼 넓은 용암은 결국 빠진다
- * - 착지 지점에 다른 트랩이 있으면 가능한 한 피해서 뛴다
- * - 졸개는 일정 확률로 밟으려 한다 (마리오처럼)
- * - 화염구는 접근 시간을 계산해 점프한다
+ * Hero AI: scans the cluster of traps ahead and, using the jump arc
+ * (air time / height), computes the "clearable span" and times the jump.
+ * - Lava too wide to clear eventually swallows him
+ * - If something else waits at the landing spot he jumps to avoid it when he can
+ * - He tries to stomp minions a fixed fraction of the time (Mario style)
+ * - He computes the time-to-contact of a fireball and jumps over it
  */
 export class HeroAIController {
   x: number;
@@ -37,7 +37,7 @@ export class HeroAIController {
 
   onDamage?: (amount: number, source: DamageSource, x: number, y: number) => void;
 
-  // 상태 이상
+  // status effects
   stun = 0;
   brake = 0;
   slowMul = 1;
@@ -81,7 +81,7 @@ export class HeroAIController {
     return this.alive && this.invul <= 0;
   }
 
-  // ---------- 외부에서 호출되는 효과 ----------
+  // ---------- effects called from outside ----------
   takeDamage(amount: number, source: DamageSource, hx = this.x, hy = this.y - 30): number {
     if (!this.canBeHit()) return 0;
     this.health = Math.max(0, this.health - amount);
@@ -111,7 +111,7 @@ export class HeroAIController {
     this.onGround = false;
   }
 
-  /** 낙하 가시가 떨어지기 시작했음을 알아챈다 */
+  /** Notices that a drop spike has started falling */
   notifySpikeFall() {
     if (this.onGround && Math.random() < this.floor.heroDodge) {
       this.brake = 0.55;
@@ -127,7 +127,7 @@ export class HeroAIController {
     this.speed = 0;
   }
 
-  // ---------- 메인 업데이트 ----------
+  // ---------- main update ----------
   update(dt: number, tm: TrapManager, bossX: number, active: boolean) {
     this.prevY = this.y;
     if (!this.alive) {
@@ -153,7 +153,7 @@ export class HeroAIController {
       if (this.roarT > 0) mul = Math.min(mul, 0.5);
     }
     let sp = this.floor.heroSpeed * (this.rage ? 1.08 : 1) * mul;
-    // 너무 뒤처지면 용사가 전력질주 (러버밴드)
+    // too far behind -> the hero sprints to catch up (rubber band)
     if (this.targetDistance > 640 && mul > 0) sp *= 1 + Math.min((this.targetDistance - 640) / 400, 0.5);
     if (!active) sp = 0;
     this.speed = sp;
@@ -227,7 +227,7 @@ export class HeroAIController {
     if (v < 30) return;
     const apexT = this.floor.heroJump / GRAVITY;
 
-    // 1) 날아오는 화염구
+    // 1) incoming fireball
     for (const fb of tm.fireballs) {
       if (!fb.alive || fb.x <= this.x) continue;
       const d = fb.x - this.x;
@@ -240,18 +240,18 @@ export class HeroAIController {
       }
     }
 
-    // 2) 앞의 트랩 덩어리
+    // 2) the cluster of traps ahead
     const clusters = tm.getClusters();
     for (const c of clusters) {
       if (c.x1 + HERO_HALF_W < this.x) continue;
-      if (c.x0 - this.x > 560) break; // 너무 멀면 아직 안 보임
+      if (c.x0 - this.x > 560) break; // too far to see it yet
       const plan = this.plan(c, clusters, v);
       if (!plan) continue;
       if (this.x >= plan.c0 && this.x <= plan.b1) {
         this.jump();
         return;
       }
-      if (this.x < plan.c0) break; // 가장 가까운 것부터 처리
+      if (this.x < plan.c0) break; // handle the nearest one first
     }
   }
 
@@ -297,7 +297,7 @@ export class HeroAIController {
     if (!this.jitter.has(c.key)) this.jitter.set(c.key, this.rollJitterPx());
     const jit = this.jitter.get(c.key)!;
 
-    // 졸개 밟기 (단일 + 가시 투구 아님)
+    // stomp a minion (single, and not the spiked helm)
     if (c.traps.length === 1 && c.traps[0].type === "Minion" && !c.traps[0].stats.spiked) {
       if (!this.stompPref.has(c.key)) {
         this.stompPref.set(c.key, Math.random() < 0.3 + this.floor.heroSkill * 0.5);

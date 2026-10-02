@@ -29,6 +29,72 @@ function applyGain() {
   if (master) master.gain.value = adMuted ? 0 : 1;
 }
 
+// ---- Background music: dark D-minor war groove, no assets ----
+// Reuses tone()/noise(), which already refuse to schedule while the game is
+// disabled (!enabled) or ad-muted, and routes everything through master.
+let musicGain: GainNode | null = null;
+let musicTimer: number | null = null;
+let musicStep = 0;
+
+function mnoise(dur: number, vol: number, delay = 0) {
+  const c = getCtx();
+  if (!c || !musicGain) return;
+  const len = Math.floor(c.sampleRate * dur);
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const gain = c.createGain();
+  gain.gain.value = vol;
+  src.connect(gain);
+  gain.connect(musicGain);
+  src.start(c.currentTime + delay);
+}
+
+/** Idempotent. Call from a user gesture; AudioContext requires one. */
+export function startMusic() {
+  const c = getCtx();
+  if (!c || !master) return;
+  if (!musicGain) {
+    musicGain = c.createGain();
+    musicGain.gain.value = 0.55;
+    musicGain.connect(master);
+  }
+  if (musicTimer !== null) return;
+  musicStep = 0;
+  musicTimer = window.setInterval(musicTick, 140);
+}
+
+export function stopMusic() {
+  if (musicTimer !== null) {
+    window.clearInterval(musicTimer);
+    musicTimer = null;
+  }
+}
+
+function musicTick() {
+  // Never schedule while disabled, ad-muted, hidden, or suspended; tails fade.
+  if (!enabled || adMuted || document.hidden) return;
+  const c = getCtx();
+  if (!c || c.state !== 'running') return;
+  const s = musicStep++ % 32;
+  // Galloping D pedal: D2 D2 D3 D2, sawtooth and low.
+  const bass = [73.42, 73.42, 146.83, 73.42];
+  const b = bass[s % 4];
+  if (b !== undefined) tone(b, 0.13, "sawtooth", 0.05);
+  // War-drum hits on the quarters, extra flam at the turnaround.
+  if (s % 8 === 0) mnoise(0.16, 0.09);
+  if (s % 8 === 4) mnoise(0.1, 0.05);
+  if (s === 28) mnoise(0.12, 0.07, 0.07);
+  // Sparse minor lead every two bars, high and thin.
+  if (s % 16 === 12) {
+    const lead = [587.33, 523.25, 440.0, 392.0, 349.23, 392.0, 440.0, 523.25];
+    const f = lead[(s >> 4) % 8];
+    if (f !== undefined) tone(f, 0.3, "triangle", 0.04);
+  }
+}
+
 function tone(freq: number, dur: number, type: OscillatorType, vol: number, slideTo?: number, delay = 0) {
   const c = getCtx();
   if (!c || !master) return;

@@ -20,7 +20,7 @@ import {
 } from "./game/progression";
 import { loadSave, persistSave, resetSave } from "./game/save";
 import { setFxQuality } from "./game/fx";
-import { sfx } from "./game/sfx";
+import { sfx, startMusic } from "./game/sfx";
 import type { RunConfig, RunResult, SaveData, TrapType } from "./game/types";
 
 export default function App() {
@@ -79,6 +79,8 @@ export default function App() {
     starting.current = true;
     try {
       sfx.unlock();
+      // Music needs the same first gesture as the AudioContext itself.
+      startMusic();
       setShop(null);
       setHelp(false);
       sessionRuns.current += 1;
@@ -160,7 +162,16 @@ export default function App() {
     setShop(tab);
   }, []);
 
-  const toggleSound = useCallback(() => setSave((p) => ({ ...p, soundOn: !p.soundOn })), []);
+  const toggleSound = useCallback(
+    () =>
+      setSave((p) => {
+        const next = !p.soundOn;
+        // Unmuting is a gesture: (re)start the loop if it never got going.
+        if (next) startMusic();
+        return { ...p, soundOn: next };
+      }),
+    [],
+  );
   const toggleFx = useCallback(() => setSave((p) => ({ ...p, lowFx: !p.lowFx })), []);
 
   const purchase = (fn: () => SaveData | null) => {

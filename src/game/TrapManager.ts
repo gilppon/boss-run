@@ -17,6 +17,7 @@ export interface TrapEntity extends BossTrap {
   timer: number;
   fireTimer: number;
   hp: number;
+  animT: number;
 }
 
 export interface Fireball {
@@ -127,6 +128,7 @@ export class TrapManager {
       timer: 0,
       fireTimer: 0.5,
       hp: stats.hp,
+      animT: 0,
     };
     this.traps.push(t);
     this.cells.set(cell, t);
@@ -183,10 +185,24 @@ export class TrapManager {
     return out;
   }
 
-  private kill(t: TrapEntity) {
+  private kill(t: TrapEntity, showMinionPop = false) {
     if (t.state === "dead") return;
     t.state = "dead";
-    t.sprite.destroy();
+    if (showMinionPop && t.type === "Minion") {
+      this.scene.tweens.killTweensOf(t.sprite);
+      this.scene.tweens.add({
+        targets: t.sprite,
+        alpha: 0,
+        scaleX: 0.25,
+        scaleY: 0.12,
+        angle: t.sprite.angle + 18,
+        duration: 180,
+        ease: "Back.easeIn",
+        onComplete: () => t.sprite.destroy(),
+      });
+    } else {
+      t.sprite.destroy();
+    }
     t.rope?.destroy();
     t.capL?.destroy();
     t.capR?.destroy();
@@ -346,6 +362,9 @@ export class TrapManager {
 
   private updateMinion(t: TrapEntity, dt: number, hero: HeroAIController) {
     if (!hero.alive) return;
+    t.animT += dt;
+    t.sprite.setY(GROUND_Y - Math.abs(Math.sin(t.animT * 5)) * 2.5);
+    t.sprite.setAngle(Math.sin(t.animT * 3) * 3);
     const top = GROUND_Y - MINION_H;
     const adx = Math.abs(hero.x - t.x);
 
@@ -364,7 +383,7 @@ export class TrapManager {
         if (t.hp <= 0) {
           this.minionKills++;
           this.fx.burst(t.x, GROUND_Y - 22, 16, { colors: [0xff6b5e, 0xc0313f, 0x3b0d18], speed: 260, life: 0.6, up: 160, gravity: 700, size: 0.45 });
-          this.kill(t);
+          this.kill(t, true);
         }
         return;
       }

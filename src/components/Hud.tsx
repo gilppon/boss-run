@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { TRAP_DEFS } from "../game/config";
+import { HERO_CHARACTERS, TRAP_DEFS } from "../game/config";
 import { bus } from "../game/bus";
 import type { HudState, RunConfig } from "../game/types";
 import { TRAP_TYPES } from "../game/types";
 import BossPortrait from "./BossPortrait";
+import HeroPortrait from "./HeroPortrait";
 
 interface Props {
   config: RunConfig;
@@ -91,9 +92,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
 
       {/* top-right: hero HP */}
       <div className="absolute right-5 top-4 flex w-[380px] flex-row-reverse items-center gap-3 pr-[110px]">
-        <div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border-2 border-[#1b1020] bg-black/50 text-4xl">
-          🧑‍🔧
-        </div>
+        <HeroPortrait id={config.floor.heroId} size={72} className="shrink-0 drop-shadow-lg" />
         <div className="flex-1">
           <div className="mb-1 flex items-baseline justify-between text-sm font-bold">
             <span className="tabular-nums text-white/90">
@@ -101,6 +100,7 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
             </span>
             <span className="text-lg font-black text-emerald-300 drop-shadow">{hud.heroName}</span>
           </div>
+          <div className="-mt-1 mb-1 text-right text-[10px] font-bold tracking-wide text-emerald-100/55">{HERO_CHARACTERS[config.floor.heroId].title}</div>
           <Bar
             pct={heroPct}
             from={heroPct > 0.5 ? "#86efac" : heroPct > 0.25 ? "#fde047" : "#fca5a5"}

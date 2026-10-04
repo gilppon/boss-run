@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { BossView } from "./characters";
+import { HERO_CHARACTERS } from "./config";
 import {
   BOSS_SCREEN_X,
   CELL,
@@ -164,7 +165,7 @@ export class BossScene extends Phaser.Scene {
     this.bossView.setBaseY(GROUND_Y);
     this.bossView.container.setPosition(this.bossX, GROUND_Y);
 
-    this.hero = new HeroAIController(this, this.cfg.floor, this.bossX - START_GAP, this.fx, this.cfg.heroHpScale ?? 1);
+    this.hero = new HeroAIController(this, this.cfg.floor, HERO_CHARACTERS[this.cfg.floor.heroId], this.bossX - START_GAP, this.fx, this.cfg.heroHpScale ?? 1);
     this.hero.onDamage = (amount, source, x, y) => this.onHeroDamaged(amount, source, x, y);
     this.heroBar = this.add.graphics().setDepth(40);
 
@@ -375,7 +376,7 @@ export class BossScene extends Phaser.Scene {
       bossMaxHp: c.boss.maxHp,
       heroHp: h.health,
       heroMaxHp: h.maxHealth,
-      heroName: c.floor.heroName,
+      heroName: HERO_CHARACTERS[c.floor.heroId].name,
       mana: this.mana,
       maxMana: c.boss.maxMana,
       bossProgress: Phaser.Math.Clamp((this.bossX - this.startX) / c.floor.length, 0, 1),

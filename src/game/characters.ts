@@ -1,82 +1,164 @@
 import Phaser from "phaser";
-import type { BossFormDef } from "./types";
+import type { BossFormDef, HeroCharacterDef } from "./types";
 
 type G = Phaser.GameObjects.Graphics;
 const OUT = 0x1b1020;
 
-/** Plumber-style hero. Origin = center of the feet */
+type HeroAnimationState = "idle" | "run" | "jump" | "fall" | "hit" | "stun" | "brace" | "land" | "rage" | "death";
+
+/** Data-driven hero assembled from a shared skeleton and floor identity. */
 export class HeroView {
   readonly container: Phaser.GameObjects.Container;
+  private cape: G;
   private legB: G;
   private legF: G;
   private armB: G;
   private armF: G;
   private torso: G;
   private head: G;
+  private gear: G;
   private flashG: G;
+  private rageG: G;
   private phase = 0;
+  private hitT = 0;
+  private launchT = 0;
+  private braceT = 0;
+  private landT = 0;
+  private animationState: HeroAnimationState = "idle";
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, private def: HeroCharacterDef) {
+    const p = def.palette;
     this.container = scene.add.container(0, 0);
-    this.armB = this.makeArm(scene, -1, 0xb5261f);
-    this.legB = this.makeLeg(scene, -4, 0x1b2f7d);
+    this.cape = scene.add.graphics();
+    this.drawCape();
+    this.armB = this.makeArm(scene, -1, p.cloth);
+    this.legB = this.makeLeg(scene, -4, p.armor);
 
     this.torso = scene.add.graphics();
     this.torso.lineStyle(2, OUT, 1);
-    this.torso.fillStyle(0x2a4cc6, 1);
+    this.torso.fillStyle(p.armor, 1);
     this.torso.fillRoundedRect(-10, -34, 20, 16, 4);
     this.torso.strokeRoundedRect(-10, -34, 20, 16, 4);
-    this.torso.fillStyle(0xe8332a, 1);
-    this.torso.fillRoundedRect(-11, -46, 22, 15, 5);
-    this.torso.strokeRoundedRect(-11, -46, 22, 15, 5);
-    this.torso.fillStyle(0x2a4cc6, 1);
-    this.torso.fillRect(-8, -46, 4, 14);
-    this.torso.fillRect(3, -46, 4, 14);
-    this.torso.fillStyle(0xffd23f, 1);
-    this.torso.fillCircle(-6, -30, 2.2);
-    this.torso.fillCircle(5, -30, 2.2);
+    this.torso.fillStyle(p.cloth, 1);
+    this.torso.fillRoundedRect(-11, -47, 22, 16, def.silhouette === "warden" ? 3 : 5);
+    this.torso.strokeRoundedRect(-11, -47, 22, 16, def.silhouette === "warden" ? 3 : 5);
+    this.torso.fillStyle(p.accent, 1);
+    this.torso.fillTriangle(-8, -44, 0, -33, 8, -44);
+    this.torso.fillStyle(p.metal, 1);
+    this.torso.fillRoundedRect(-4, -29, 8, 5, 2);
+    if (def.silhouette === "warden" || def.silhouette === "duelist") {
+      this.torso.fillStyle(p.metal, 1);
+      this.torso.fillRoundedRect(-16, -46, 9, 12, 3);
+      this.torso.strokeRoundedRect(-16, -46, 9, 12, 3);
+      this.torso.fillRoundedRect(7, -46, 9, 12, 3);
+      this.torso.strokeRoundedRect(7, -46, 9, 12, 3);
+    }
 
-    this.legF = this.makeLeg(scene, 4, 0x2a4cc6);
+    this.legF = this.makeLeg(scene, 4, p.cloth);
 
     this.head = scene.add.graphics();
     this.head.lineStyle(2, OUT, 1);
-    // face
-    this.head.fillStyle(0xffc79a, 1);
-    this.head.fillCircle(1, -54, 11);
-    this.head.strokeCircle(1, -54, 11);
-    // nose
-    this.head.fillStyle(0xf5a97a, 1);
-    this.head.fillCircle(11, -52, 4.2);
-    this.head.strokeCircle(11, -52, 4.2);
-    // mustache
-    this.head.fillStyle(0x4a2a12, 1);
-    this.head.fillEllipse(7, -47, 14, 5);
-    // eye
-    this.head.fillStyle(0xffffff, 1);
-    this.head.fillEllipse(6, -57, 5.5, 7);
-    this.head.fillStyle(0x111111, 1);
-    this.head.fillCircle(7.5, -57, 1.8);
-    // hat
-    this.head.fillStyle(0xe8332a, 1);
-    this.head.beginPath();
-    this.head.arc(1, -56, 12, Math.PI, Math.PI * 2, false);
-    this.head.closePath();
-    this.head.fillPath();
-    this.head.strokePath();
-    this.head.fillRoundedRect(3, -62, 15, 5, 2);
-    this.head.strokeRoundedRect(3, -62, 15, 5, 2);
-    this.head.fillStyle(0xffffff, 1);
-    this.head.fillCircle(0, -63, 3.8);
-    this.head.strokeCircle(0, -63, 3.8);
+    this.drawHead();
 
-    this.armF = this.makeArm(scene, 1, 0xe8332a);
+    this.armF = this.makeArm(scene, 1, p.cloth);
+    this.gear = scene.add.graphics();
+    this.drawGear();
+
+    this.rageG = scene.add.graphics();
+    this.rageG.lineStyle(2, p.accent, 0.9);
+    this.rageG.strokeEllipse(0, -35, 38, 68);
+    this.rageG.setAlpha(0);
 
     this.flashG = scene.add.graphics();
     this.flashG.fillStyle(0xff2a2a, 1);
     this.flashG.fillEllipse(0, -34, 28, 60);
     this.flashG.setAlpha(0);
 
-    this.container.add([this.armB, this.legB, this.torso, this.legF, this.head, this.armF, this.flashG]);
+    this.container.add([this.cape, this.armB, this.legB, this.torso, this.legF, this.head, this.armF, this.gear, this.rageG, this.flashG]);
+  }
+
+  private drawCape() {
+    const p = this.def.palette;
+    const g = this.cape;
+    g.lineStyle(2, OUT, 1);
+    if (this.def.silhouette === "scout") {
+      g.fillStyle(p.cloth, 1);
+      g.beginPath();
+      g.moveTo(-8, -44); g.lineTo(-18, -40); g.lineTo(-23, -20); g.lineTo(-13, -27); g.lineTo(-5, -22); g.closePath();
+      g.fillPath(); g.strokePath();
+    } else if (this.def.silhouette === "breaker") {
+      g.fillStyle(p.cloth, 1);
+      g.beginPath();
+      g.moveTo(-8, -44); g.lineTo(-18, -39); g.lineTo(-31, -8); g.lineTo(-20, -13); g.lineTo(-17, -3); g.lineTo(-7, -24); g.closePath();
+      g.fillPath(); g.strokePath();
+      g.lineStyle(2, p.accent, 0.9); g.lineBetween(-23, -27, -15, -31);
+    } else if (this.def.silhouette === "duelist") {
+      g.fillStyle(p.cloth, 1);
+      g.beginPath();
+      g.moveTo(-8, -45); g.lineTo(-17, -41); g.lineTo(-22, -13); g.lineTo(-10, -23); g.closePath();
+      g.fillPath(); g.strokePath();
+      g.lineStyle(2, p.accent, 1); g.lineBetween(-18, -33, -10, -38);
+    } else if (this.def.silhouette === "apprentice") {
+      g.lineStyle(4, p.accent, 1); g.lineBetween(-9, -43, -20, -35); g.lineBetween(-20, -35, -24, -25);
+    }
+  }
+
+  private drawHead() {
+    const p = this.def.palette;
+    const g = this.head;
+    g.fillStyle(p.skin, 1);
+    this.head.fillCircle(1, -54, 11);
+    this.head.strokeCircle(1, -54, 11);
+    g.fillStyle(p.hair, 1);
+    if (this.def.silhouette === "scout") {
+      g.fillEllipse(0, -60, 26, 17);
+      g.lineStyle(2, OUT, 1); g.strokeEllipse(0, -60, 26, 17);
+    } else if (this.def.silhouette === "warden") {
+      g.fillRoundedRect(-12, -68, 25, 12, 4);
+      g.strokeRoundedRect(-12, -68, 25, 12, 4);
+      g.fillStyle(p.metal, 1); g.fillRect(-11, -58, 24, 4); g.strokeRect(-11, -58, 24, 4);
+      g.fillStyle(p.accent, 1); g.fillTriangle(-2, -67, 4, -81, 8, -66); g.strokeTriangle(-2, -67, 4, -81, 8, -66);
+    } else if (this.def.silhouette === "breaker") {
+      g.beginPath(); g.moveTo(-13, -58); g.lineTo(-10, -74); g.lineTo(0, -82); g.lineTo(12, -72); g.lineTo(14, -58); g.closePath();
+      g.fillStyle(p.cloth, 1); g.fillPath(); g.lineStyle(2, OUT, 1); g.strokePath();
+      g.fillStyle(p.accent, 1); g.fillTriangle(-11, -67, -20, -77, -7, -74); g.fillTriangle(10, -68, 20, -78, 9, -74);
+    } else if (this.def.silhouette === "duelist") {
+      g.fillEllipse(0, -61, 25, 12);
+      g.lineStyle(2, OUT, 1); g.strokeEllipse(0, -61, 25, 12);
+      g.fillStyle(p.metal, 1); g.fillTriangle(-9, -64, -10, -74, -3, -65); g.fillTriangle(0, -64, 3, -78, 6, -64); g.fillTriangle(8, -64, 14, -73, 13, -63);
+    } else {
+      g.beginPath(); g.moveTo(-10, -59); g.lineTo(-9, -67); g.lineTo(-3, -65); g.lineTo(1, -71); g.lineTo(5, -64); g.lineTo(12, -66); g.lineTo(12, -58); g.closePath();
+      g.fillPath(); g.lineStyle(2, OUT, 1); g.strokePath();
+      g.lineStyle(3, p.accent, 1); g.lineBetween(-11, -57, 12, -56);
+    }
+    this.head.fillStyle(0xffffff, 1);
+    this.head.fillEllipse(6, -57, 5.5, 7);
+    this.head.fillStyle(p.eye, 1);
+    this.head.fillCircle(7.5, -57, 1.8);
+    g.fillStyle(p.skin, 1); g.fillCircle(12, -52, 2.2);
+    g.lineStyle(2, p.hair, 1); g.lineBetween(3, -48, 9, -47);
+    if (this.def.silhouette === "scout") {
+      g.lineStyle(2, p.metal, 1); g.strokeCircle(-3, -58, 4.2); g.strokeCircle(7, -58, 4.2); g.lineBetween(1, -58, 3, -58);
+    }
+  }
+
+  private drawGear() {
+    const p = this.def.palette;
+    const g = this.gear;
+    g.lineStyle(2, OUT, 1);
+    if (this.def.silhouette === "apprentice" || this.def.silhouette === "duelist") {
+      g.lineStyle(4, p.metal, 1); g.lineBetween(13, -39, 25, -57);
+      g.lineStyle(3, p.accent, 1); g.lineBetween(12, -38, 18, -34);
+      g.lineStyle(2, OUT, 1); g.lineBetween(13, -39, 25, -57);
+    } else if (this.def.silhouette === "scout") {
+      g.fillStyle(p.accent, 1); g.fillCircle(-15, -31, 4); g.lineStyle(2, p.metal, 1); g.strokeCircle(-15, -31, 5);
+      g.lineStyle(2, p.metal, 1); g.lineBetween(-15, -26, -15, -21);
+    } else if (this.def.silhouette === "warden") {
+      g.fillStyle(p.accent, 1); g.fillCircle(15, -35, 3); g.lineStyle(2, p.metal, 1); g.strokeCircle(15, -35, 5);
+    } else {
+      g.lineStyle(4, p.metal, 1); g.lineBetween(15, -39, 25, -55); g.lineStyle(2, OUT, 1); g.lineBetween(15, -39, 25, -55);
+      g.fillStyle(p.accent, 1); g.fillCircle(26, -57, 3); g.lineStyle(1, OUT, 1); g.strokeCircle(26, -57, 3);
+    }
   }
 
   private makeLeg(scene: Phaser.Scene, px: number, color: number): G {
@@ -84,7 +166,9 @@ export class HeroView {
     g.lineStyle(1.5, OUT, 1);
     g.fillStyle(color, 1);
     g.fillRoundedRect(-4.5, -1, 9, 17, 3);
-    g.fillStyle(0x6b3a1e, 1);
+    g.fillStyle(this.def.palette.accent, 1);
+    g.fillRect(-3.5, 2, 2, 8);
+    g.fillStyle(0x302229, 1);
     g.fillEllipse(3, 18, 16, 8);
     g.strokeEllipse(3, 18, 16, 8);
     return g;
@@ -95,31 +179,46 @@ export class HeroView {
     g.lineStyle(1.5, OUT, 1);
     g.fillStyle(color, 1);
     g.fillRoundedRect(-3.5, -2, 7, 14, 3);
-    g.fillStyle(0xffffff, 1);
+    g.fillStyle(this.def.palette.skin, 1);
     g.fillCircle(0, 14, 4.5);
     g.strokeCircle(0, 14, 4.5);
     return g;
   }
 
-  update(dt: number, speed: number, onGround: boolean, dead: boolean) {
-    if (dead) {
+  update(dt: number, speed: number, onGround: boolean, vy: number, dead: boolean, stunned: boolean, rage: boolean) {
+    this.hitT = Math.max(0, this.hitT - dt);
+    this.launchT = Math.max(0, this.launchT - dt);
+    this.braceT = Math.max(0, this.braceT - dt);
+    this.landT = Math.max(0, this.landT - dt);
+    this.phase += dt * (speed > 20 ? speed / 15 : 3.5);
+    this.animationState = dead ? "death" : stunned ? "stun" : this.hitT > 0 ? "hit" : this.braceT > 0 ? "brace" : !onGround ? (vy < 0 ? "jump" : "fall") : this.landT > 0 ? "land" : speed > 20 ? "run" : rage ? "rage" : "idle";
+    this.container.setScale(1);
+    if (this.animationState !== "death") this.container.rotation = 0;
+    this.torso.y = 0;
+    this.head.y = 0;
+    this.rageG.setAlpha(rage ? 0.28 + Math.sin(this.phase * 2) * 0.1 : 0);
+
+    if (this.animationState === "death") {
       this.armF.rotation = -2.7;
       this.armB.rotation = -2.4;
       this.legF.rotation = -0.5;
       this.legB.rotation = 0.5;
       return;
     }
-    if (!onGround) {
+    if (this.animationState === "jump") {
       this.legF.rotation = -0.85;
       this.legB.rotation = 0.6;
-      this.armF.rotation = -2.7;
-      this.armB.rotation = -2.1;
-      this.torso.y = 0;
-      this.head.y = 0;
-      return;
-    }
-    if (speed > 20) {
-      this.phase += (dt * speed) / 15;
+      this.armF.rotation = -2.2;
+      this.armB.rotation = -2.5;
+      if (this.launchT > 0) this.container.setScale(1.06, 0.88);
+    } else if (this.animationState === "fall") {
+      this.legF.rotation = 0.7;
+      this.legB.rotation = -0.8;
+      this.armF.rotation = -2.9;
+      this.armB.rotation = 1.8;
+      this.torso.y = 1;
+      this.head.y = 1;
+    } else if (this.animationState === "run") {
       const s = Math.sin(this.phase);
       this.legF.rotation = s * 0.95;
       this.legB.rotation = -s * 0.95;
@@ -128,19 +227,59 @@ export class HeroView {
       const bob = -Math.abs(Math.cos(this.phase)) * 2.5;
       this.torso.y = bob;
       this.head.y = bob;
+    } else if (this.animationState === "hit" || this.animationState === "stun") {
+      this.legF.rotation = 0.15;
+      this.legB.rotation = -0.15;
+      this.armF.rotation = -1.5;
+      this.armB.rotation = 1.2;
+      this.torso.y = Math.sin(this.phase * 12) * 1.5;
+      this.head.y = -2;
+      this.container.rotation = this.animationState === "hit" ? 0.12 : Math.sin(this.phase * 18) * 0.08;
+    } else if (this.animationState === "brace") {
+      this.legF.rotation = -0.2;
+      this.legB.rotation = 0.5;
+      this.armF.rotation = -1.8;
+      this.armB.rotation = 1.3;
+      this.torso.y = 2;
+      this.container.rotation = -0.12;
+    } else if (this.animationState === "land") {
+      this.legF.rotation = 0;
+      this.legB.rotation = 0;
+      this.armF.rotation = -0.5;
+      this.armB.rotation = 0.7;
+      this.torso.y = 2;
+      this.container.setScale(1.08, 0.84);
     } else {
       this.legF.rotation = 0;
       this.legB.rotation = 0;
-      this.armF.rotation = 0.15;
-      this.armB.rotation = -0.15;
-      this.torso.y = 0;
-      this.head.y = 0;
+      const breath = Math.sin(this.phase) * (this.animationState === "rage" ? 1.2 : 0.7);
+      this.armF.rotation = 0.15 + breath * 0.04;
+      this.armB.rotation = -0.15 - breath * 0.04;
+      this.torso.y = -breath;
+      this.head.y = -breath;
     }
   }
 
   flash() {
+    this.hitT = 0.24;
     this.flashG.setAlpha(0.75);
     this.flashG.scene.tweens.add({ targets: this.flashG, alpha: 0, duration: 260 });
+  }
+
+  brace() {
+    this.braceT = 0.3;
+  }
+
+  launch() {
+    this.launchT = 0.1;
+  }
+
+  land() {
+    this.landT = 0.16;
+  }
+
+  get state(): HeroAnimationState {
+    return this.animationState;
   }
 }
 
@@ -156,6 +295,8 @@ export class BossView {
   private flashG: G;
   private aura?: Phaser.GameObjects.Image;
   private phase = 0;
+  private roarT = 0;
+  private hitT = 0;
   private baseScale: number;
 
   constructor(scene: Phaser.Scene, def: BossFormDef) {
@@ -352,16 +493,23 @@ export class BossView {
   }
 
   update(dt: number, speed: number) {
-    this.phase += (dt * speed) / 22;
+    this.phase += dt * (speed > 20 ? speed / 22 : 2.2);
+    this.roarT = Math.max(0, this.roarT - dt);
+    this.hitT = Math.max(0, this.hitT - dt);
     const s = Math.sin(this.phase);
-    this.legF.rotation = s * 0.7;
-    this.legB.rotation = -s * 0.7;
-    this.armF.rotation = -s * 0.6 - 0.2;
-    this.armB.rotation = s * 0.6 - 0.2;
-    this.tail.rotation = Math.sin(this.phase * 0.7) * 0.22;
-    if (this.wings) this.wings.rotation = Math.sin(this.phase * 0.6) * 0.16;
-    const bob = -Math.abs(Math.cos(this.phase)) * 4;
+    const moving = speed > 20;
+    this.legF.rotation = moving ? s * 0.7 : Math.sin(this.phase * 0.5) * 0.025;
+    this.legB.rotation = moving ? -s * 0.7 : -Math.sin(this.phase * 0.5) * 0.025;
+    this.armF.rotation = this.roarT > 0 ? -1.8 : moving ? -s * 0.6 - 0.2 : -0.18;
+    this.armB.rotation = this.roarT > 0 ? -2.0 : moving ? s * 0.6 - 0.2 : 0.18;
+    this.tail.rotation = Math.sin(this.phase * (moving ? 0.7 : 0.35)) * (moving ? 0.22 : 0.08);
+    if (this.wings) this.wings.rotation = this.roarT > 0 ? Math.sin(this.roarT * 22) * 0.25 : Math.sin(this.phase * (moving ? 0.6 : 0.3)) * (moving ? 0.16 : 0.05);
+    const bob = moving ? -Math.abs(Math.cos(this.phase)) * 4 : Math.sin(this.phase * 0.5) * 1.5;
     this.container.y = this.baseY + bob;
+    const roarPulse = this.roarT > 0 ? Math.sin((0.45 - this.roarT) / 0.45 * Math.PI) : 0;
+    const hitPulse = this.hitT > 0 ? Math.sin((0.18 - this.hitT) / 0.18 * Math.PI) : 0;
+    this.container.setScale(this.baseScale * (1 + Math.max(roarPulse * 0.08, hitPulse * 0.05)), this.baseScale * (1 - roarPulse * 0.04 + hitPulse * 0.025));
+    if (this.aura) this.aura.setAlpha(this.roarT > 0 ? 0.8 : 0.55 + Math.sin(this.phase) * 0.08);
   }
 
   private baseY = 0;
@@ -370,28 +518,12 @@ export class BossView {
   }
 
   flash() {
+    this.hitT = 0.18;
     this.flashG.setAlpha(0.8);
     this.flashG.scene.tweens.add({ targets: this.flashG, alpha: 0, duration: 300 });
-    const sc = this.baseScale;
-    this.container.scene.tweens.add({
-      targets: this.container,
-      scaleX: sc * 0.9,
-      scaleY: sc * 1.08,
-      duration: 90,
-      yoyo: true,
-      ease: "Quad.easeOut",
-    });
   }
 
   roar() {
-    const sc = this.baseScale;
-    this.container.scene.tweens.add({
-      targets: this.container,
-      scaleX: sc * 1.12,
-      scaleY: sc * 1.12,
-      duration: 160,
-      yoyo: true,
-      ease: "Quad.easeOut",
-    });
+    this.roarT = 0.45;
   }
 }

@@ -1,8 +1,9 @@
 import Phaser from "phaser";
+import { minionStompChance, spikeReactionChance } from "./characterBehavior";
 import { GRAVITY, GROUND_Y, HERO_H, HERO_HALF_W, MINION_H } from "./constants";
 import { HeroView } from "./characters";
 import type { Fx } from "./fx";
-import type { FloorDef, HeroHeroAI } from "./types";
+import type { FloorDef, HeroCharacterDef, HeroHeroAI } from "./types";
 import type { Cluster, TrapManager } from "./TrapManager";
 
 export type DamageSource = "lava" | "spike" | "fire" | "contact" | "helm";
@@ -17,7 +18,7 @@ interface JumpPlan {
  * (air time / height), computes the "clearable span" and times the jump.
  * - Lava too wide to clear eventually swallows him
  * - If something else waits at the landing spot he jumps to avoid it when he can
- * - He tries to stomp minions a fixed fraction of the time (Mario style)
+ * - He tries to stomp minions a profile-adjusted fraction of the time
  * - He computes the time-to-contact of a fireball and jumps over it
  */
 export class HeroAIController {
@@ -56,6 +57,7 @@ export class HeroAIController {
   constructor(
     scene: Phaser.Scene,
     private floor: FloorDef,
+    private character: HeroCharacterDef,
     startX: number,
     private fx: Fx,
     hpScale = 1,
@@ -64,7 +66,7 @@ export class HeroAIController {
     this.health = Math.max(1, Math.round(floor.heroHp * hpScale));
     this.maxHealth = Math.max(1, Math.round(floor.heroHp * hpScale));
     this.shadow = scene.add.image(startX, GROUND_Y + 3, "shadow").setDepth(9).setAlpha(0.8);
-    this.view = new HeroView(scene);
+    this.view = new HeroView(scene, character);
     this.view.container.setDepth(10);
     this.view.container.setPosition(startX, GROUND_Y);
   }
@@ -113,8 +115,10 @@ export class HeroAIController {
 
   /** Notices that a drop spike has started falling */
   notifySpikeFall() {
-    if (this.onGround && Math.random() < this.floor.heroDodge) {
+    const reactionChance = spikeReactionChance(this.floor.heroDodge, this.character.behavior.spikeReactionBonus);
+    if (this.onGround && Math.random() < reactionChance) {
       this.brake = 0.55;
+      this.view.brace();
       this.fx.text(this.x, this.y - 84, "!", "#ffe14d", 34);
     }
   }
@@ -169,6 +173,7 @@ export class HeroAIController {
         this.y = GROUND_Y;
         this.vy = 0;
         this.onGround = true;
+        this.view.land();
         this.fx.burst(this.x, GROUND_Y, 5, { colors: [0xb59aa8, 0x8a6a7a], speed: 90, life: 0.35, gravity: 120, size: 0.35, additive: false });
       }
     }
@@ -181,7 +186,7 @@ export class HeroAIController {
     c.setPosition(this.x, this.y);
     c.rotation = 0;
     c.alpha = this.invul > 0 && Math.floor(this.invul * 22) % 2 === 0 ? 0.4 : 1;
-    this.view.update(dt, this.speed, this.onGround, false);
+    this.view.update(dt, this.speed, this.onGround, this.vy, false, this.stun > 0, this.rage);
     const h = Math.max(0, GROUND_Y - this.y);
     this.shadow.setPosition(this.x, GROUND_Y + 3).setScale(Math.max(0.4, 1 - h / 300) * 0.9, 1).setAlpha(0.8);
   }
@@ -195,7 +200,7 @@ export class HeroAIController {
     c.setPosition(this.x, this.y);
     c.rotation += 5 * dt;
     c.alpha = 1;
-    this.view.update(dt, 0, false, true);
+    this.view.update(dt, 0, false, this.vy, true, false, this.rage);
     this.shadow.setAlpha(0);
   }
 
@@ -204,6 +209,7 @@ export class HeroAIController {
     this.vy = -this.floor.heroJump;
     this.onGround = false;
     this.jumpCd = 0.06;
+    this.view.launch();
     this.fx.burst(this.x, GROUND_Y, 4, { colors: [0xb59aa8], speed: 80, life: 0.3, gravity: 100, size: 0.3, additive: false });
   }
 
@@ -300,7 +306,8 @@ export class HeroAIController {
     // stomp a minion (single, and not the spiked helm)
     if (c.traps.length === 1 && c.traps[0].type === "Minion" && !c.traps[0].stats.spiked) {
       if (!this.stompPref.has(c.key)) {
-        this.stompPref.set(c.key, Math.random() < 0.3 + this.floor.heroSkill * 0.5);
+        const stompChance = minionStompChance(this.floor.heroSkill, this.character.behavior.stompChanceBonus);
+        this.stompPref.set(c.key, Math.random() < stompChance);
       }
       if (this.stompPref.get(c.key)) {
         const disc = vy0 * vy0 - 2 * g * MINION_H;

@@ -46,6 +46,29 @@ export interface BossFormDef {
   aura: boolean;
 }
 
+export type HeroCharacterId = "apprentice" | "sewer-scout" | "ember-warden" | "abyss-breaker" | "crown-duelist";
+
+export interface HeroCharacterDef {
+  id: HeroCharacterId;
+  name: string;
+  title: string;
+  trait: string;
+  silhouette: "apprentice" | "scout" | "warden" | "breaker" | "duelist";
+  palette: {
+    skin: number;
+    hair: number;
+    cloth: number;
+    armor: number;
+    metal: number;
+    accent: number;
+    eye: number;
+  };
+  behavior: {
+    spikeReactionBonus: number;
+    stompChanceBonus: number;
+  };
+}
+
 export interface BossStats {
   form: number;
   def: BossFormDef;
@@ -64,7 +87,7 @@ export interface FloorDef {
   sub: string;
   desc: string;
   length: number;
-  heroName: string;
+  heroId: HeroCharacterId;
   heroHp: number;
   heroSpeed: number;
   heroJump: number;

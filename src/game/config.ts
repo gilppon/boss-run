@@ -1,4 +1,4 @@
-import type { BossFormDef, FloorDef, TrapType } from "./types";
+import type { BossFormDef, FloorDef, HeroCharacterDef, HeroCharacterId, TrapType } from "./types";
 
 export interface TrapDef {
   name: string;
@@ -127,14 +127,63 @@ export const BOSS_FORMS: BossFormDef[] = [
   },
 ];
 
+/** Presentation and bounded behavior profile shared by Phaser and the React UI. */
+export const HERO_CHARACTERS: Record<HeroCharacterId, HeroCharacterDef> = {
+  apprentice: {
+    id: "apprentice",
+    name: "Dungeon Apprentice",
+    title: "Chipped Blade",
+    trait: "Brave, still learning",
+    silhouette: "apprentice",
+    palette: { skin: 0xe9b18b, hair: 0x563321, cloth: 0x68704a, armor: 0x8d5739, metal: 0xb7aa83, accent: 0xd8913b, eye: 0x39251d },
+    behavior: { spikeReactionBonus: -0.02, stompChanceBonus: -0.06 },
+  },
+  "sewer-scout": {
+    id: "sewer-scout",
+    name: "Sewer Scout",
+    title: "Pipe Runner",
+    trait: "Quick to spot danger",
+    silhouette: "scout",
+    palette: { skin: 0xd99c73, hair: 0x263b35, cloth: 0x287e69, armor: 0x31554c, metal: 0xb9d5bd, accent: 0x72d6a1, eye: 0x172d2a },
+    behavior: { spikeReactionBonus: 0.06, stompChanceBonus: 0.12 },
+  },
+  "ember-warden": {
+    id: "ember-warden",
+    name: "Ember Warden",
+    title: "Furnace Guard",
+    trait: "Steady under falling steel",
+    silhouette: "warden",
+    palette: { skin: 0xd99a70, hair: 0x4b211b, cloth: 0x9c392b, armor: 0x512b2a, metal: 0xd09a58, accent: 0xff7b35, eye: 0x401512 },
+    behavior: { spikeReactionBonus: 0.1, stompChanceBonus: 0.02 },
+  },
+  "abyss-breaker": {
+    id: "abyss-breaker",
+    name: "Abyss Breaker",
+    title: "Gloom Mantle",
+    trait: "Patient and hard to surprise",
+    silhouette: "breaker",
+    palette: { skin: 0xc98e78, hair: 0x211b34, cloth: 0x453667, armor: 0x27253d, metal: 0x9b8bd0, accent: 0x7e69d5, eye: 0x271f44 },
+    behavior: { spikeReactionBonus: 0.12, stompChanceBonus: 0.08 },
+  },
+  "crown-duelist": {
+    id: "crown-duelist",
+    name: "Crown Duelist",
+    title: "Last Challenger",
+    trait: "Turns every opening into a strike",
+    silhouette: "duelist",
+    palette: { skin: 0xf0c397, hair: 0x593b22, cloth: 0x315c78, armor: 0x284455, metal: 0xe1bd58, accent: 0xf3cf68, eye: 0x1c3443 },
+    behavior: { spikeReactionBonus: 0.08, stompChanceBonus: 0.16 },
+  },
+};
+
 export const FLOORS: FloorDef[] = [
   {
     id: 0,
     name: "Rookie's Road",
     sub: "B1",
-    desc: "A rookie hero who just picked up a sword. Still clumsy with jumps.",
+    desc: "A stubborn apprentice with a chipped blade and more courage than practice.",
     length: 9000,
-    heroName: "Rookie Hero",
+    heroId: "apprentice",
     heroHp: 90,
     heroSpeed: 262,
     heroJump: 820,
@@ -149,9 +198,9 @@ export const FLOORS: FloorDef[] = [
     id: 1,
     name: "Sketchy Sewers",
     sub: "B2",
-    desc: "A plumber hero weaving between green pipes. His jumps are getting accurate.",
+    desc: "A sharp-eyed sewer scout who reads danger and weaves through tight passages.",
     length: 10200,
-    heroName: "Plumber Hero",
+    heroId: "sewer-scout",
     heroHp: 130,
     heroSpeed: 268,
     heroJump: 835,
@@ -166,9 +215,9 @@ export const FLOORS: FloorDef[] = [
     id: 2,
     name: "Ember Gallery",
     sub: "B3",
-    desc: "Fire-forged. Spots spikes, and even stops to think them over.",
+    desc: "An ember warden trained to keep composure beneath falling steel.",
     length: 11400,
-    heroName: "Flameforged Hero",
+    heroId: "ember-warden",
     heroHp: 180,
     heroSpeed: 274,
     heroJump: 850,
@@ -183,9 +232,9 @@ export const FLOORS: FloorDef[] = [
     id: 3,
     name: "Abyssal Halls",
     sub: "B4",
-    desc: "Almost pro level. Barely clears even wide lava pools.",
+    desc: "An abyss breaker wrapped in gloom, patient enough to wait for the right opening.",
     length: 12600,
-    heroName: "Abyss Breaker",
+    heroId: "abyss-breaker",
     heroHp: 240,
     heroSpeed: 280,
     heroJump: 865,
@@ -200,9 +249,9 @@ export const FLOORS: FloorDef[] = [
     id: 4,
     name: "The King's Cathedral",
     sub: "B5",
-    desc: "A legendary superhero. This one needs real trap combos.",
+    desc: "The crown duelist has crossed every hall and punishes every opening.",
     length: 13800,
-    heroName: "Legendary Superhero",
+    heroId: "crown-duelist",
     heroHp: 320,
     heroSpeed: 286,
     heroJump: 880,

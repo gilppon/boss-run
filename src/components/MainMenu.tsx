@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { bgUrl } from "../game/assets";
-import { BOSS_FORMS, FLOORS } from "../game/config";
+import { BOSS_FORMS, FLOORS, HERO_CHARACTERS } from "../game/config";
 import { DAILY_REWARDS, dailyStatus, pendingMine } from "../game/progression";
 import type { SaveData } from "../game/types";
 import BossPortrait from "./BossPortrait";
+import HeroPortrait from "./HeroPortrait";
 import type { ShopTab } from "./Shop";
 
 interface Props {
@@ -231,11 +232,11 @@ export default function MainMenu({
                         : "border-[#1b1020] bg-black/40 hover:bg-black/60"
                     } ${!open ? "opacity-45" : ""}`}
                   >
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-[#1b1020] text-xl font-black text-black"
-                      style={{ background: open ? f.accent : "#555" }}
-                    >
-                      {open ? i + 1 : "🔒"}
+                    <div className="relative h-12 w-12 shrink-0">
+                      <HeroPortrait id={f.heroId} size={48} className={open ? "" : "grayscale opacity-60"} />
+                      <span className={`absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#1b1020] text-[10px] font-black ${open ? "bg-yellow-300 text-black" : "bg-slate-500 text-white"}`}>
+                        {open ? i + 1 : "🔒"}
+                      </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
@@ -244,7 +245,8 @@ export default function MainMenu({
                       </div>
                       <div className="truncate text-xs text-white/60">{f.desc}</div>
                       <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-bold">
-                        <span className="text-emerald-300">🧑‍🔧 {f.heroName}</span>
+                        <span className="text-emerald-300">{HERO_CHARACTERS[f.heroId].name}</span>
+                        <span className="text-emerald-100/50">{HERO_CHARACTERS[f.heroId].title}</span>
                         <span className="text-rose-300">HP {f.heroHp}</span>
                         <span className="text-sky-300">Length {(f.length / 100).toFixed(0)}m</span>
                         <span className="text-violet-300">💎 {f.reward}+</span>

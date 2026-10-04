@@ -23,6 +23,7 @@ export default function PlayScreen({ config, showHint, soundOn, onToggleSound, o
   const [ended, setEnded] = useState(false);
   const pausedRef = useRef(false);
   const endedRef = useRef(false);
+  const resumeBusyRef = useRef(false);
 
   // scale the 1280x720 HUD coordinate space to the actual canvas size
   useEffect(() => {
@@ -45,12 +46,27 @@ export default function PlayScreen({ config, showHint, soundOn, onToggleSound, o
     []
   );
 
-  const applyPause = useCallback((v: boolean) => {
-    pausedRef.current = v;
-    setPaused(v);
-    bus.emit("pause", v);
-    if (v) Poki.gameplayStop();
-    else Poki.gameplayStart();
+  const applyPause = useCallback(async (v: boolean) => {
+    if (endedRef.current || pausedRef.current === v) return;
+    if (v) {
+      pausedRef.current = true;
+      setPaused(true);
+      bus.emit("pause", true);
+      Poki.gameplayStop();
+      return;
+    }
+    if (resumeBusyRef.current || !pausedRef.current) return;
+    resumeBusyRef.current = true;
+    try {
+      await Poki.commercialBreak();
+      if (endedRef.current) return;
+      pausedRef.current = false;
+      setPaused(false);
+      bus.emit("pause", false);
+      Poki.gameplayStart();
+    } finally {
+      resumeBusyRef.current = false;
+    }
   }, []);
 
   const togglePause = useCallback(() => {

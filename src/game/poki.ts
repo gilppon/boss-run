@@ -23,6 +23,9 @@ let adUI: AdUI | null = null;
 let provider: "poki" | "crazy" | null = null;
 let ready = false;
 let initPromise: Promise<void> | null = null;
+let loadingFinishedSent = false;
+let gameplayRequested = false;
+let gameplayActive = false;
 
 export function registerAdUI(fn: AdUI | null) {
   adUI = fn;
@@ -110,6 +113,7 @@ export const Poki = {
   },
 
   loadingFinished() {
+    if (!ready || loadingFinishedSent) return;
     if (provider === "poki") {
       window.PokiSDK?.gameLoadingFinished?.();
     } else if (provider === "crazy") {
@@ -119,25 +123,32 @@ export const Poki = {
         /* ignore */
       }
     }
+    loadingFinishedSent = true;
+    if (gameplayRequested) this.gameplayStart();
   },
 
   gameplayStart() {
-    if (!ready) return;
+    gameplayRequested = true;
+    if (!ready || !loadingFinishedSent || gameplayActive || !provider) return;
     try {
       if (provider === "poki") window.PokiSDK?.gameplayStart?.();
       else if (provider === "crazy") crazy()?.game?.gameplayStart();
+      gameplayActive = true;
     } catch {
       /* ignore */
     }
   },
 
   gameplayStop() {
-    if (!ready) return;
+    gameplayRequested = false;
+    if (!ready || !loadingFinishedSent || !gameplayActive || !provider) return;
     try {
       if (provider === "poki") window.PokiSDK?.gameplayStop?.();
       else if (provider === "crazy") crazy()?.game?.gameplayStop();
     } catch {
       /* ignore */
+    } finally {
+      gameplayActive = false;
     }
   },
 
@@ -222,7 +233,9 @@ export const Poki = {
         sfx.setAdMuted(false);
       }
     }
-    if (!adUI) return true;
+    // Never replace a failed or unavailable portal ad with a simulated reward.
+    // Keep the mock ad only for ordinary off-portal development.
+    if (env() !== null || !adUI) return false;
     sfx.setAdMuted(true);
     try {
       return await new Promise<boolean>((resolve) => adUI!("rewarded", (ok) => resolve(ok)));

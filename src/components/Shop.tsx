@@ -3,6 +3,7 @@ import {
   BOSS_FORMS,
   FACILITIES,
   FLOORS,
+  HERO_CHARACTERS,
   MAX_FACILITY_LEVEL,
   MAX_TRAP_LEVEL,
   TRAP_DEFS,
@@ -277,7 +278,7 @@ export default function Shop({ save, initialTab = "trap", onBuyTrap, onBuyForm, 
                         <div className="flex-1 text-sm">
                           <div className="font-black">{fl.name}</div>
                           <div className="text-xs text-white/50">
-                            {fl.heroName} · HP {fl.heroHp} · 💎 {fl.reward}
+                            {HERO_CHARACTERS[fl.heroId].name} · HP {fl.heroHp} · 💎 {fl.reward}
                           </div>
                         </div>
                         <div className="text-sm font-bold">{cleared ? "✅ Cleared" : open ? "Open" : "🔒"}</div>

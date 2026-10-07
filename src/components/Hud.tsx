@@ -9,6 +9,7 @@ import HeroPortrait from "./HeroPortrait";
 interface Props {
   config: RunConfig;
   hud: HudState | null;
+  uiScale: number;
   paused: boolean;
   ended: boolean;
   soundOn: boolean;
@@ -44,7 +45,7 @@ function Bar({
   );
 }
 
-export default function Hud({ config, hud, paused, ended, soundOn, showHint, onPause, onToggleSound }: Props) {
+export default function Hud({ config, hud, uiScale, paused, ended, soundOn, showHint, onPause, onToggleSound }: Props) {
   // First-run mission: detect 1 trap placed → celebrate for 5s (hooks before the early return)
   const placed = hud?.trapsPlaced ?? 0;
   const didRef = useRef(false);
@@ -59,17 +60,23 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
   }, [placed]);
 
   if (!hud) return null;
+  const readableFont = (designPx: number, minScreenPx: number) =>
+    `${Math.max(designPx, minScreenPx / Math.max(uiScale, 0.25))}px`;
   const danger = hud.started && !ended && hud.gap < 230;
   const roarReady = hud.roarCd <= 0;
+  const roarSealed = config.mode === "no-roar-trial";
   const roarPct = hud.roarMax > 0 ? 1 - hud.roarCd / hud.roarMax : 1;
   const heroPct = hud.heroHp / hud.heroMaxHp;
+  const comboTier = hud.combo >= 8 ? 3 : hud.combo >= 6 ? 2 : hud.combo >= 4 ? 1 : 0;
+  const comboLabel = ["STREAK", "HOT STREAK", "DEMONIC", "UNSTOPPABLE"][comboTier];
+  const comboColor = ["#ffe14d", "#ff9a3d", "#ff6b5e", "#ff4d6d"][comboTier];
 
   return (
     <div className="absolute inset-0 select-none text-white" style={{ fontFamily: "inherit" }}>
       {danger && (
         <div className="danger-pulse absolute inset-0" style={{ boxShadow: "inset 0 0 120px 30px rgba(255,30,30,0.55)" }}>
           <div className="absolute left-1/2 top-[150px] -translate-x-1/2 rounded-full bg-red-600/90 px-6 py-1 text-2xl font-black tracking-wide shadow-lg">
-            ⚠ He's on top of you! ROAR!
+            {roarSealed ? "⚠ He's on top of you! TRAPS ONLY!" : "⚠ He's on top of you! ROAR!"}
           </div>
         </div>
       )}
@@ -81,8 +88,8 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
         </div>
         <div className="flex-1">
           <div className="mb-1 flex items-baseline justify-between text-sm font-bold">
-            <span className="text-lg font-black text-rose-300 drop-shadow">{config.boss.def.name}</span>
-            <span className="tabular-nums text-white/90">
+            <span className="text-lg font-black text-rose-300 drop-shadow" style={{ fontSize: readableFont(18, 12) }}>{config.boss.def.name}</span>
+            <span className="tabular-nums text-white/90" style={{ fontSize: readableFont(14, 10) }}>
               {Math.ceil(hud.bossHp)} / {hud.bossMaxHp}
             </span>
           </div>
@@ -91,16 +98,16 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
       </div>
 
       {/* top-right: hero HP */}
-      <div className="absolute right-5 top-4 flex w-[380px] flex-row-reverse items-center gap-3 pr-[110px]">
+      <div className={`absolute right-5 top-4 flex ${uiScale <= 0.625 ? "w-[460px]" : "w-[420px]"} flex-row-reverse items-center gap-3 pr-[110px]`}>
         <HeroPortrait id={config.floor.heroId} size={72} className="shrink-0 drop-shadow-lg" />
         <div className="flex-1">
-          <div className="mb-1 flex items-baseline justify-between text-sm font-bold">
-            <span className="tabular-nums text-white/90">
+          <div className="mb-1 flex items-baseline justify-between gap-3 text-sm font-bold">
+            <span className="shrink-0 whitespace-nowrap tabular-nums text-white/90" style={{ fontSize: readableFont(14, 10) }}>
               {Math.ceil(hud.heroHp)} / {hud.heroMaxHp}
             </span>
-            <span className="text-lg font-black text-emerald-300 drop-shadow">{hud.heroName}</span>
+            <span className="min-w-0 text-right text-lg font-black leading-tight text-emerald-300 drop-shadow" style={{ fontSize: readableFont(18, 12) }}>{hud.heroName}</span>
           </div>
-          <div className="-mt-1 mb-1 text-right text-[10px] font-bold tracking-wide text-emerald-100/55">{HERO_CHARACTERS[config.floor.heroId].title}</div>
+          <div className="-mt-1 mb-1 text-right text-[10px] font-bold tracking-wide text-emerald-100/55" style={{ fontSize: readableFont(10, 8) }}>{HERO_CHARACTERS[config.floor.heroId].title}</div>
           <Bar
             pct={heroPct}
             from={heroPct > 0.5 ? "#86efac" : heroPct > 0.25 ? "#fde047" : "#fca5a5"}
@@ -159,8 +166,25 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
       </div>
 
       {hud.combo >= 2 && (
-        <div className="absolute left-1/2 top-[152px] -translate-x-1/2 text-3xl font-black text-yellow-300 drop-shadow-[0_3px_0_#1b1020]">
-          COMBO ×{hud.combo}
+        <div
+          key={hud.combo}
+          role="status"
+          aria-label={`${comboLabel}: ${hud.combo} hits`}
+          className="pop-in absolute left-1/2 top-[205px] min-w-[176px] -translate-x-1/2 rounded-xl border bg-[#241018]/95 px-5 py-2 text-center shadow-[0_5px_0_#12070d,0_0_24px_rgba(255,106,61,0.24)] backdrop-blur-sm"
+          style={{ borderColor: `${comboColor}b8`, boxShadow: `0 5px 0 #12070d, 0 0 24px ${comboColor}55` }}
+        >
+          <div className="text-[10px] font-black tracking-[0.28em] text-white/65">{comboLabel}</div>
+          <div className="mt-0.5 flex items-baseline justify-center gap-2 leading-none">
+            <span className="text-3xl font-black tabular-nums" style={{ color: comboColor }}>
+              ×{hud.combo}
+            </span>
+            <span className="text-[10px] font-black tracking-[0.2em] text-white/55">HITS</span>
+          </div>
+          {hud.comboVariety > 1 && (
+            <div className="mt-1 text-[10px] font-black tracking-[0.16em] text-cyan-200">
+              TACTICAL MIX · {hud.comboVariety}/3 TRAP TYPES
+            </div>
+          )}
         </div>
       )}
 
@@ -230,24 +254,24 @@ export default function Hud({ config, hud, paused, ended, soundOn, showHint, onP
             e.currentTarget.blur();
             bus.emit("roar");
           }}
-          disabled={!roarReady}
+          disabled={roarSealed || !roarReady}
           className={[
             "relative flex h-[92px] w-[176px] flex-col items-center justify-center overflow-hidden rounded-2xl border-[3px] font-black transition",
-            roarReady
+            roarReady && !roarSealed
               ? "border-yellow-300 bg-gradient-to-b from-orange-500 to-red-700 shadow-[0_0_28px_rgba(255,140,40,0.7)] hover:scale-105"
               : "border-[#1b1020] bg-black/70 text-white/60",
           ].join(" ")}
         >
-          {!roarReady && (
+          {!roarReady && !roarSealed && (
             <div
               className="absolute inset-x-0 bottom-0 bg-orange-500/35"
               style={{ height: `${roarPct * 100}%` }}
             />
           )}
           <span className="relative text-3xl leading-none">🗣️</span>
-          <span className="relative text-lg">ROAR [Space]</span>
+          <span className="relative text-lg">{roarSealed ? "ROAR SEALED" : "ROAR [Space]"}</span>
           <span className="relative text-xs font-bold text-white/80">
-            {roarReady ? "SEND HIM PACKING!" : `${hud.roarCd.toFixed(1)}s`}
+            {roarSealed ? "TRIAL · +25% REWARDS" : roarReady ? "SEND HIM PACKING!" : `${hud.roarCd.toFixed(1)}s`}
           </span>
         </button>
       </div>

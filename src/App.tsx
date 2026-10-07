@@ -6,6 +6,7 @@ import PlayScreen from "./components/PlayScreen";
 import ResultModal, { type ResultInfo } from "./components/ResultModal";
 import Shop, { type ShopTab } from "./components/Shop";
 import { FLOORS } from "./game/config";
+import { readBossChallenge } from "./game/share";
 import { Poki, registerAdUI } from "./game/poki";
 import {
   addGems,
@@ -20,8 +21,8 @@ import {
 } from "./game/progression";
 import { loadSave, persistSave, resetSave } from "./game/save";
 import { setFxQuality } from "./game/fx";
-import { sfx, startMusic } from "./game/sfx";
-import type { RunConfig, RunResult, SaveData, TrapType } from "./game/types";
+import { sfx, setAudioVolumes, setMusicTheme, startMusic, stopMusic } from "./game/sfx";
+import type { RunConfig, RunMode, RunResult, SaveData, TrapType } from "./game/types";
 
 export default function App() {
   const [save, setSave] = useState<SaveData>(() => loadSave());
@@ -33,6 +34,7 @@ export default function App() {
   const [shop, setShop] = useState<ShopTab | null>(null);
   const [help, setHelp] = useState(false);
   const [ad, setAd] = useState<AdState | null>(null);
+  const [challenge] = useState(readBossChallenge);
 
   const saveRef = useRef(save);
   saveRef.current = save;
@@ -48,6 +50,7 @@ export default function App() {
   useEffect(() => {
     persistSave(save);
     sfx.setEnabled(save.soundOn);
+    setAudioVolumes(save.musicVolume, save.sfxVolume);
     setFxQuality(save.lowFx);
   }, [save]);
 
@@ -62,11 +65,6 @@ export default function App() {
     return () => registerAdUI(null);
   }, []);
 
-  // Show help automatically on first visit
-  useEffect(() => {
-    if (!saveRef.current.seenTutorial) setHelp(true);
-  }, []);
-
   const closeAd = useCallback((ok: boolean) => {
     const a = adRef.current;
     adRef.current = null;
@@ -74,27 +72,34 @@ export default function App() {
     a?.done(ok);
   }, []);
 
-  const startRun = useCallback(async (floorIdx: number, opts?: { heroHpScale?: number }) => {
+  const startRun = useCallback(async (floorIdx: number, opts?: { heroHpScale?: number; skipCommercialBreak?: boolean; mode?: RunMode; practiceOnly?: boolean }) => {
     if (starting.current) return;
     starting.current = true;
     try {
+      const initialSave = saveRef.current;
+      const practiceOnly = opts?.practiceOnly ?? false;
+      const targetFloor = Math.min(Math.max(0, floorIdx), FLOORS.length - 1);
+      setMusicTheme(practiceOnly ? targetFloor : Math.min(targetFloor, initialSave.cleared));
       sfx.unlock();
       // Music needs the same first gesture as the AudioContext itself.
       startMusic();
       setShop(null);
       setHelp(false);
       sessionRuns.current += 1;
-      // Only show a commercial ad at a natural breather between runs (every 3rd)
-      if (sessionRuns.current > 1 && (sessionRuns.current - 1) % 3 === 0) {
+      // Signal every natural restart to Poki; the SDK decides whether to show an ad.
+      if (sessionRuns.current > 1 && !opts?.skipCommercialBreak) {
         await Poki.commercialBreak();
       }
       const s = saveRef.current;
-      const idx = Math.min(floorIdx, s.cleared, FLOORS.length - 1);
+      const idx = practiceOnly ? targetFloor : Math.min(targetFloor, s.cleared);
+      setMusicTheme(idx);
       setShowHint(!s.seenTutorial);
-      setSave((p) => ({ ...p, selectedFloor: idx, seenTutorial: true }));
+      if (!practiceOnly) setSave((p) => ({ ...p, selectedFloor: idx, seenTutorial: true }));
       setResult(null);
-      const cfg = buildRunConfig(s, idx);
+      const mode = opts?.mode ?? "standard";
+      const cfg = buildRunConfig(s, idx, mode);
       if (opts?.heroHpScale) cfg.heroHpScale = opts.heroHpScale;
+      cfg.practiceOnly = practiceOnly;
       setRunCfg(cfg);
       setRunKey((k) => k + 1);
       setScreen("play");
@@ -106,19 +111,22 @@ export default function App() {
 
   const handleEnd = useCallback((r: RunResult) => {
     Poki.gameplayStop();
+    stopMusic();
     const cfg = cfgRef.current;
     if (!cfg) return;
     const s = saveRef.current;
     const idx = cfg.floorIndex;
-    const reward = computeReward(s, idx, r);
-    const unlockedNext = r.won && s.cleared === idx && idx + 1 < FLOORS.length;
-    setSave(applyRunEnd(s, idx, r, reward.total));
-    setResult({ r, reward, floorIndex: idx, adClaimed: false, unlockedNext, adBusy: false });
+    const reward = cfg.practiceOnly
+      ? { base: 0, bonus: 0, vaultPct: 0, challengeBonus: 0, total: 0 }
+      : computeReward(s, idx, r, cfg.mode);
+    const unlockedNext = !cfg.practiceOnly && r.won && s.cleared === idx && idx + 1 < FLOORS.length;
+    if (!cfg.practiceOnly) setSave(applyRunEnd(s, idx, r, reward.total));
+    setResult({ r, reward, floorIndex: idx, mode: cfg.mode, adClaimed: false, unlockedNext, adBusy: false, practiceOnly: cfg.practiceOnly });
   }, []);
 
   const watchAd = useCallback(async () => {
     const cur = resultRef.current;
-    if (!cur || cur.adClaimed || cur.adBusy) return;
+    if (!cur || cur.practiceOnly || cur.adClaimed || cur.adBusy) return;
     setResult({ ...cur, adBusy: true });
     const ok = await Poki.rewardedBreak();
     if (ok) {
@@ -133,18 +141,19 @@ export default function App() {
   // Revive on defeat: watch an ad -> restart the same floor with the hero at 50% HP (once per result)
   const revive = useCallback(async () => {
     const cur = resultRef.current;
-    if (!cur || cur.r.won || cur.adBusy) return;
+    if (!cur || cur.practiceOnly || cur.r.won || cur.adBusy) return;
     setResult({ ...cur, adBusy: true });
     const ok = await Poki.rewardedBreak();
     if (ok) {
       sfx.go();
-      startRun(cur.floorIndex, { heroHpScale: 0.5 });
+      startRun(cur.floorIndex, { heroHpScale: 0.5, skipCommercialBreak: true, mode: cur.mode });
     } else {
       setResult((r) => (r ? { ...r, adBusy: false } : r));
     }
   }, [startRun]);
 
   const toMenu = useCallback(() => {
+    stopMusic();
     setResult(null);
     setRunCfg(null);
     setScreen("menu");
@@ -166,6 +175,7 @@ export default function App() {
     () =>
       setSave((p) => {
         const next = !p.soundOn;
+        sfx.setEnabled(next);
         // Unmuting is a gesture: (re)start the loop if it never got going.
         if (next) startMusic();
         return { ...p, soundOn: next };
@@ -173,6 +183,9 @@ export default function App() {
     [],
   );
   const toggleFx = useCallback(() => setSave((p) => ({ ...p, lowFx: !p.lowFx })), []);
+  const setAudioVolume = useCallback((channel: "musicVolume" | "sfxVolume", value: number) => {
+    setSave((p) => ({ ...p, [channel]: Math.max(0, Math.min(1, value)) }));
+  }, []);
 
   const purchase = (fn: () => SaveData | null) => {
     const next = fn();
@@ -187,7 +200,7 @@ export default function App() {
       {screen === "menu" && (
         <MainMenu
           save={save}
-          onStart={startRun}
+          onStart={(floor, mode) => startRun(floor, { mode })}
           onSelectFloor={(i) => setSave((p) => ({ ...p, selectedFloor: i }))}
           onShop={(tab) => setShop(tab ?? "trap")}
           onHelp={() => setHelp(true)}
@@ -206,12 +219,30 @@ export default function App() {
             }
           }}
           onToggleSound={toggleSound}
+          onSetAudioVolume={setAudioVolume}
           onToggleFx={toggleFx}
           onReset={() => {
             setSave(resetSave());
             sessionRuns.current = 0;
           }}
         />
+      )}
+      {screen === "menu" && challenge && (
+        <div className="fixed left-1/2 top-3 z-50 w-[min(92vw,440px)] -translate-x-1/2 rounded-2xl border-2 border-orange-300/70 bg-[#180a17]/95 p-3 text-center shadow-xl">
+          <div className="text-xs font-black tracking-widest text-orange-200">FRIEND’S TRAP CHALLENGE</div>
+          <div className="mt-1 text-sm font-bold text-white">
+            Floor {challenge.floorIndex + 1} · {challenge.trapHits} trap hits · {Math.round(challenge.heroDamagePct * 100)}% hero damage
+          </div>
+          <div className="mt-2 text-[10px] font-bold text-orange-100/60">
+            {challenge.floorIndex > save.cleared ? 'Locked floor · unranked practice' : 'Same floor · campaign progress counts'}
+          </div>
+          <button
+            onClick={() => void startRun(challenge.floorIndex, { mode: challenge.mode, practiceOnly: challenge.floorIndex > save.cleared })}
+            className="mt-2 rounded-full bg-orange-400 px-4 py-1.5 text-xs font-black text-black"
+          >
+            {challenge.floorIndex > save.cleared ? 'Practice this floor' : 'Try this floor'}
+          </button>
+        </div>
       )}
 
       {screen === "play" && runCfg && (
@@ -220,7 +251,10 @@ export default function App() {
           config={runCfg}
           showHint={showHint}
           soundOn={save.soundOn}
+          musicVolume={save.musicVolume}
+          sfxVolume={save.sfxVolume}
           onToggleSound={toggleSound}
+          onSetAudioVolume={setAudioVolume}
           onEnd={handleEnd}
           onQuit={toMenu}
         />
@@ -229,8 +263,8 @@ export default function App() {
       {screen === "play" && result && (
         <ResultModal
           info={result}
-          onRetry={() => startRun(result.floorIndex)}
-          onNext={() => startRun(result.floorIndex + 1)}
+          onRetry={() => startRun(result.floorIndex, { mode: result.mode, practiceOnly: result.practiceOnly })}
+          onNext={() => startRun(result.floorIndex + 1, { mode: result.mode })}
           onMenu={toMenu}
           onShop={() => openShopFromResult("trap")}
           onWatchAd={watchAd}

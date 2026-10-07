@@ -24,7 +24,7 @@ export default function GameCanvas({ config, onEnd, className }: Props) {
     let cancelled = false;
     const off = bus.on("end", (r: RunResult) => endRef.current(r));
 
-    loadBackdrop().then((img) => {
+    loadBackdrop(config.floorIndex).then((img) => {
       if (cancelled || !ref.current) return;
       game = new Phaser.Game({
         type: Phaser.AUTO,

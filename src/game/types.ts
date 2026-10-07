@@ -81,6 +81,8 @@ export interface BossStats {
   scale: number;
 }
 
+export type RunMode = "standard" | "no-roar-trial";
+
 export interface FloorDef {
   id: number;
   name: string;
@@ -101,10 +103,12 @@ export interface FloorDef {
 
 export interface RunConfig {
   floorIndex: number;
+  mode: RunMode;
   floor: FloorDef;
   boss: BossStats;
   traps: Record<TrapType, TrapStats>;
   heroHpScale?: number; // revive: hero HP multiplier (default 1)
+  practiceOnly?: boolean; // locked-floor challenge: no reward or campaign progress
 }
 
 export type EndReason = "hero-defeated" | "boss-defeated" | "exit-reached";
@@ -125,6 +129,7 @@ export interface RewardBreakdown {
   base: number;
   bonus: number;
   vaultPct: number;
+  challengeBonus: number;
   total: number;
 }
 
@@ -145,6 +150,7 @@ export interface HudState {
   time: number;
   started: boolean;
   combo: number;
+  comboVariety: number;
   trapsPlaced: number;
 }
 
@@ -159,6 +165,8 @@ export interface SaveData {
   lastCollect: number;
   stats: { runs: number; wins: number; heroesDefeated: number };
   soundOn: boolean;
+  musicVolume: number;
+  sfxVolume: number;
   seenTutorial: boolean;
   lowFx: boolean; // low-spec fx mode
   lastDaily: number; // timestamp of the last daily reward claim

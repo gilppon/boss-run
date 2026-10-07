@@ -2,20 +2,22 @@ import { useEffect, useState } from "react";
 import { bgUrl } from "../game/assets";
 import { BOSS_FORMS, FLOORS, HERO_CHARACTERS } from "../game/config";
 import { DAILY_REWARDS, dailyStatus, pendingMine } from "../game/progression";
-import type { SaveData } from "../game/types";
+import type { RunMode, SaveData } from "../game/types";
 import BossPortrait from "./BossPortrait";
 import HeroPortrait from "./HeroPortrait";
+import AudioMixer from "./AudioMixer";
 import type { ShopTab } from "./Shop";
 
 interface Props {
   save: SaveData;
-  onStart: (floor: number) => void;
+  onStart: (floor: number, mode: RunMode) => void;
   onSelectFloor: (i: number) => void;
   onShop: (tab?: ShopTab) => void;
   onHelp: () => void;
   onCollect: () => void;
   onClaimDaily: () => void;
   onToggleSound: () => void;
+  onSetAudioVolume: (channel: "musicVolume" | "sfxVolume", value: number) => void;
   onToggleFx: () => void;
   onReset: () => void;
 }
@@ -41,11 +43,14 @@ export default function MainMenu({
   onCollect,
   onClaimDaily,
   onToggleSound,
+  onSetAudioVolume,
   onToggleFx,
   onReset,
 }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [showReset, setShowReset] = useState(false);
+  const [audioOpen, setAudioOpen] = useState(false);
+  const [runMode, setRunMode] = useState<RunMode>("standard");
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 2000);
     return () => window.clearInterval(id);
@@ -108,8 +113,13 @@ export default function MainMenu({
             <button onClick={onHelp} className="rounded-full border-2 border-[#1b1020] bg-black/60 px-4 py-1.5 text-sm font-bold hover:bg-black/80">
               ❓ How to play
             </button>
-            <button onClick={onToggleSound} className="rounded-full border-2 border-[#1b1020] bg-black/60 px-3 py-1.5 text-sm hover:bg-black/80">
-              {save.soundOn ? "🔊" : "🔇"}
+            <button
+              onClick={() => setAudioOpen((open) => !open)}
+              aria-expanded={audioOpen}
+              aria-controls="audio-mix-panel"
+              className="rounded-full border-2 border-[#1b1020] bg-black/60 px-3 py-1.5 text-sm shadow-[0_4px_14px_rgba(0,0,0,0.4)] transition hover:-translate-y-0.5 hover:bg-black/80"
+            >
+              🎚 Audio
             </button>
             <button
               onClick={onToggleFx}
@@ -122,6 +132,23 @@ export default function MainMenu({
             </button>
           </div>
         </div>
+
+        {audioOpen && (
+          <div className="mt-3 flex justify-end">
+            <div
+              id="audio-mix-panel"
+              className="w-72 rounded-2xl border border-orange-200/30 bg-[linear-gradient(155deg,rgba(69,24,30,0.98),rgba(17,7,15,0.98))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.72),inset_0_1px_0_rgba(255,225,180,0.16)] backdrop-blur-xl"
+            >
+              <AudioMixer
+                musicVolume={save.musicVolume}
+                sfxVolume={save.sfxVolume}
+                soundOn={save.soundOn}
+                onToggleSound={onToggleSound}
+                onSetAudioVolume={onSetAudioVolume}
+              />
+            </div>
+          </div>
+        )}
 
         {/* title */}
         <header className="mt-4 text-center sm:mt-6">
@@ -259,17 +286,43 @@ export default function MainMenu({
                 );
               })}
             </div>
+            <section className="mt-4 rounded-2xl border-2 border-[#1b1020] bg-[#120810]/90 p-3 shadow-[inset_0_1px_0_rgba(255,220,180,0.08)]" aria-label="Run mode">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-xs font-black tracking-[0.22em] text-white/55">CHOOSE YOUR RUN</h3>
+                <span className="text-[10px] font-bold text-orange-200/70">REPLAY CONTRACT</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  aria-pressed={runMode === "standard"}
+                  onClick={() => setRunMode("standard")}
+                  className={`rounded-xl border-2 px-3 py-2 text-left transition active:translate-y-0.5 ${runMode === "standard" ? "border-yellow-300/80 bg-gradient-to-b from-[#4b3020] to-[#26151a] shadow-[0_3px_0_#10070b]" : "border-[#35232b] bg-black/35 hover:bg-white/5"}`}
+                >
+                  <span className="block text-sm font-black text-yellow-100">⚔ Standard</span>
+                  <span className="mt-0.5 block text-[10px] font-bold text-white/50">All abilities · base rewards</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={runMode === "no-roar-trial"}
+                  onClick={() => setRunMode("no-roar-trial")}
+                  className={`rounded-xl border-2 px-3 py-2 text-left transition active:translate-y-0.5 ${runMode === "no-roar-trial" ? "border-orange-300 bg-gradient-to-b from-[#71351c] to-[#35151b] shadow-[0_0_18px_rgba(251,146,60,0.2)]" : "border-[#35232b] bg-black/35 hover:bg-white/5"}`}
+                >
+                  <span className="block text-sm font-black text-orange-100">🗣️ No Roar Trial</span>
+                  <span className="mt-0.5 block text-[10px] font-bold text-orange-100/65">Roar sealed · +25% rewards</span>
+                </button>
+              </div>
+            </section>
             <button
-              onClick={() => onStart(selected)}
+              onClick={() => onStart(selected, runMode)}
               className="start-btn mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 via-red-500 to-red-700 py-4 text-2xl font-black tracking-wide shadow-[0_6px_0_#5a0f14] transition hover:brightness-110 active:translate-y-1 active:shadow-[0_2px_0_#5a0f14]"
             >
-              ⚔️ DEPLOY! — {floor.sub}
+              ⚔️ DEPLOY! — {floor.sub}{runMode === "no-roar-trial" ? " · TRIAL" : ""}
             </button>
           </section>
         </main>
 
         <footer className="mt-4 flex items-center justify-between text-xs text-white/40">
-          <span>Click / drag · 1·2·3 pick a trap · Space to roar</span>
+          <span>Click / drag · 1·2·3 pick a trap · {runMode === "no-roar-trial" ? "No Roar Trial seals Space" : "Space to roar"}</span>
           <button onClick={() => setShowReset(true)} className="underline decoration-dotted hover:text-white/70">
             Reset progress
           </button>

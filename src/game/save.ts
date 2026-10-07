@@ -14,6 +14,8 @@ export function defaultSave(): SaveData {
     lastCollect: Date.now(),
     stats: { runs: 0, wins: 0, heroesDefeated: 0 },
     soundOn: true,
+    musicVolume: 1,
+    sfxVolume: 1,
     seenTutorial: false,
     lowFx: false,
     lastDaily: 0,
@@ -30,6 +32,8 @@ export function loadSave(): SaveData {
     return {
       ...base,
       ...p,
+      musicVolume: clampVolume(p.musicVolume, base.musicVolume),
+      sfxVolume: clampVolume(p.sfxVolume, base.sfxVolume),
       trapLevels: { ...base.trapLevels, ...(p.trapLevels ?? {}) },
       facilities: { ...base.facilities, ...(p.facilities ?? {}) },
       stats: { ...base.stats, ...(p.stats ?? {}) },
@@ -37,6 +41,10 @@ export function loadSave(): SaveData {
   } catch {
     return base;
   }
+}
+
+function clampVolume(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 }
 
 export function persistSave(s: SaveData) {

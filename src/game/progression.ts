@@ -3,6 +3,7 @@ import type {
   BossStats,
   RewardBreakdown,
   RunConfig,
+  RunMode,
   RunResult,
   SaveData,
   TrapStats,
@@ -60,18 +61,19 @@ export function bossStats(save: SaveData): BossStats {
   };
 }
 
-export function buildRunConfig(save: SaveData, floorIndex: number): RunConfig {
+export function buildRunConfig(save: SaveData, floorIndex: number, mode: RunMode = "standard"): RunConfig {
   const traps = {} as Record<TrapType, TrapStats>;
   for (const t of TRAP_TYPES) traps[t] = trapStats(t, save.trapLevels[t]);
   return {
     floorIndex,
+    mode,
     floor: FLOORS[floorIndex],
     boss: bossStats(save),
     traps,
   };
 }
 
-export function computeReward(save: SaveData, floorIndex: number, r: RunResult): RewardBreakdown {
+export function computeReward(save: SaveData, floorIndex: number, r: RunResult, mode: RunMode = "standard"): RewardBreakdown {
   const floor = FLOORS[floorIndex];
   let base: number;
   let bonus: number;
@@ -84,8 +86,10 @@ export function computeReward(save: SaveData, floorIndex: number, r: RunResult):
   }
   const vaultPct = save.facilities.vault * 12;
   let total = Math.round((base + bonus) * (1 + vaultPct / 100));
+  const challengeBonus = mode === "no-roar-trial" ? Math.round(total * 0.25) : 0;
+  total += challengeBonus;
   if (!r.won) total = Math.max(total, 3);
-  return { base, bonus, vaultPct, total };
+  return { base, bonus, vaultPct, challengeBonus, total };
 }
 
 export const MINE_RATE = 0.6; // gems per minute per level

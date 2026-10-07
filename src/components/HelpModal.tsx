@@ -1,6 +1,16 @@
+import { BOSS_FORMS, TRAP_DEFS } from "../game/config";
+
 export default function HelpModal({ onClose }: { onClose: () => void }) {
+  const starterMana = BOSS_FORMS[0]?.maxMana ?? 100;
+  const lavaCost = TRAP_DEFS.Lava.baseCost;
+  const tilesBeforeRefill = Math.floor(starterMana / lavaCost);
+  const manaForNextTile = lavaCost - (starterMana % lavaCost);
   const rows: Array<[string, string, string]> = [
-    ["🌋", "Lava Pit", "The wider you drag it, the higher the hero has to jump. Five tiles wide is basically a guaranteed kill."],
+    [
+      "🌋",
+      "Lava Pit",
+      `Wider pits force longer jumps. Each tile costs ${lavaCost} mana; the starting ${starterMana} lets you place ${tilesBeforeRefill} quickly, then wait for ${manaForNextTile} mana before adding the next.`,
+    ],
     ["🗡️", "Drop Spikes", "Falls from the ceiling as the hero approaches. Spot it and stop — that stall is free damage."],
     ["👺", "Flame Minion", "Spits fire. Step on it and it dies, but from Lv.3 its spiked helm bites anyone who stomps on it too."],
   ];
@@ -27,9 +37,41 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
             time.
           </li>
           <li>
+            <b className="text-cyan-300">COMBO</b> · Hit him again within <b>3.5 seconds</b>. Chain 2/4/6/8 hits to
+            reclaim <b>6/8/10/12 mana</b> and keep the traps coming.
+          </li>
+          <li>
+            <b className="text-sky-300">TACTICAL MIX</b> · Use different trap types in one combo for <b>+5 mana</b>
+            per new type, up to <b>+10</b>.
+          </li>
+          <li>
+            <b className="text-amber-300">B1 RUNES</b> · Gold floor marks boost a trap's damage by <b>35%</b>.
+            Lava on a rune erupts high enough to catch low jumps.
+          </li>
+          <li>
+            <b className="text-teal-300">B2 TIDAL SURGE</b> · Every <b>10 seconds</b>, the sewer warns you before a
+            current pushes the hero to <b>24% faster</b> for <b>1.35 seconds</b>. Place traps or time your roar.
+          </li>
+          <li>
+            <b className="text-orange-300">B3 FORGE DROP</b> · A marked steel beam falls every <b>11 seconds</b>.
+            Aim a trap at the landing mark; a grounded hero caught there is staggered.
+          </li>
+          <li>
+            <b className="text-violet-300">B4 ABYSS ECHO</b> · A phantom hazard baits the hero into jumping.
+            Place a trap on the teal landing mark to catch him.
+          </li>
+          <li>
+            <b className="text-amber-200">B5 CATHEDRAL BELL</b> · A bell rings every <b>8.96 seconds</b>.
+            A real trap hit during the brief choir resonance extends the combo link by <b>2.2 seconds</b>.
+          </li>
+          <li>
             <b className="text-orange-300">ROAR</b> · <kbd className="rounded bg-white/20 px-2">Space</kbd> or
             right-click. Shoves the hero far back and slows him for a moment. Your emergency button when he's right on
             top of you!
+          </li>
+          <li>
+            <b className="text-amber-200">NO ROAR TRIAL</b> · Disables that emergency ability for the whole run and
+            adds <b>25% to the reward</b>. Retry and revive keep the contract active.
           </li>
           <li>
             <b className="text-sky-300">KEYS</b> · <kbd className="rounded bg-white/20 px-2">1</kbd>{" "}

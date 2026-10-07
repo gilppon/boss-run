@@ -43,6 +43,9 @@ export interface Cluster {
 export type PlaceCheck = "ok" | "occupied" | "zone" | "locked";
 
 const FIRE_COLORS = [0xffe066, 0xff9a1f, 0xff5a1f];
+const RUNE_CELL_INTERVAL = 12;
+const RUNE_CELL_OFFSET = 7;
+export const RUNE_DAMAGE_BONUS = 0.35;
 
 /**
  * Owns trap spawning, updating and collisions.
@@ -70,6 +73,17 @@ export class TrapManager {
     return Math.floor(worldX / CELL);
   }
 
+  isRuneCell(cell: number): boolean {
+    return this.cfg.floorIndex === 0 && (cell - RUNE_CELL_OFFSET) % RUNE_CELL_INTERVAL === 0;
+  }
+
+  placementStats(type: TrapType, cell: number): TrapStats {
+    const base = this.cfg.traps[type];
+    return this.isRuneCell(cell)
+      ? { ...base, damage: Math.round(base.damage * (1 + RUNE_DAMAGE_BONUS)) }
+      : base;
+  }
+
   canPlace(type: TrapType, cell: number, minX: number, maxX: number): PlaceCheck {
     if (!this.cfg.traps[type].unlocked) return "locked";
     if (this.cells.has(cell)) return "occupied";
@@ -79,7 +93,7 @@ export class TrapManager {
   }
 
   place(type: TrapType, cell: number): TrapEntity {
-    const stats = this.cfg.traps[type];
+    const stats = this.placementStats(type, cell);
     const x = cell * CELL + CELL / 2;
     const scene = this.scene;
     let sprite: Phaser.GameObjects.Image;
@@ -278,15 +292,21 @@ export class TrapManager {
   }
 
   private updateLava(t: TrapEntity, hero: HeroAIController) {
-    if (!hero.alive || !hero.onGround || !hero.canBeHit()) return;
+    if (!hero.alive || !hero.canBeHit()) return;
     const left = t.cell * CELL + (this.lavaAt(t.cell - 1) ? -1 : 8);
     const right = (t.cell + 1) * CELL - (this.lavaAt(t.cell + 1) ? -1 : 8);
-    if (hero.x > left && hero.x < right) {
+    const runeEruption = this.isRuneCell(t.cell) && !hero.onGround && hero.y >= GROUND_Y - 112;
+    if (hero.x > left && hero.x < right && (hero.onGround || runeEruption)) {
       if (hero.takeDamage(t.stats.damage, "lava", hero.x, GROUND_Y - 30)) {
         hero.bounce(900);
         hero.applySlow(0.65, 1.0);
-        this.fx.burst(hero.x, GROUND_Y - 6, 22, { colors: [0xffe066, 0xff8a1f, 0xff3d0e], speed: 340, life: 0.7, up: 380, gravity: 900, size: 0.55 });
-        this.fx.ring(hero.x, GROUND_Y - 10, 0xff7a1f, 8);
+        if (runeEruption) {
+          this.fx.burst(hero.x, GROUND_Y - 42, 28, { colors: [0xffffff, 0xffe066, 0xffa52f], speed: 420, life: 0.72, up: 520, gravity: 760, size: 0.58 });
+          this.fx.ring(hero.x, GROUND_Y - 70, 0xffd166, 18);
+        } else {
+          this.fx.burst(hero.x, GROUND_Y - 6, 22, { colors: [0xffe066, 0xff8a1f, 0xff3d0e], speed: 340, life: 0.7, up: 380, gravity: 900, size: 0.55 });
+          this.fx.ring(hero.x, GROUND_Y - 10, 0xff7a1f, 8);
+        }
         sfx.lava();
       }
     }

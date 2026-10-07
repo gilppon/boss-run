@@ -1,13 +1,17 @@
+import { useEffect, useState } from "react";
 import { FLOORS } from "../game/config";
-import type { RewardBreakdown, RunResult } from "../game/types";
+import { createBossShareUrl } from "../game/share";
+import type { RewardBreakdown, RunMode, RunResult } from "../game/types";
 
 export interface ResultInfo {
   r: RunResult;
   reward: RewardBreakdown;
   floorIndex: number;
+  mode: RunMode;
   adClaimed: boolean;
   unlockedNext: boolean;
   adBusy: boolean;
+  practiceOnly?: boolean;
 }
 
 interface Props {
@@ -28,9 +32,21 @@ const REASON: Record<string, string> = {
 };
 
 export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onWatchAd, onRevive, reviveBusy }: Props) {
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareStatus, setShareStatus] = useState("");
   const { r, reward, floorIndex } = info;
   const floor = FLOORS[floorIndex];
-  const hasNext = r.won && floorIndex + 1 < FLOORS.length;
+  const hasNext = r.won && floorIndex + 1 < FLOORS.length && !info.practiceOnly;
+
+  useEffect(() => {
+    let active = true;
+    void createBossShareUrl({ floorIndex, mode: info.mode, won: r.won, trapHits: r.trapHits, heroDamagePct: r.heroDamagePct, trapsPlaced: r.trapsPlaced }).then((url) => {
+      if (active) setShareUrl(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [floorIndex, info.mode, r]);
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-4">
@@ -47,6 +63,16 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
         <p className="mt-1 text-xs text-white/40">
           {floor.sub} · {floor.name}
         </p>
+        {info.mode === "no-roar-trial" && (
+          <div className="mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-orange-300/45 bg-orange-300/10 px-3 py-1 text-xs font-black tracking-wide text-orange-200">
+            🗣️ NO ROAR TRIAL · {r.won ? "CLEARED" : "FAILED"}
+          </div>
+        )}
+        {info.practiceOnly && (
+          <div className="mx-auto mt-3 inline-flex rounded-full border border-sky-300/45 bg-sky-300/10 px-3 py-1 text-xs font-black tracking-wide text-sky-200">
+            PRACTICE CHALLENGE · NO GEMS OR PROGRESS
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
           <Stat label="Survived" value={`${r.time.toFixed(1)}s`} />
@@ -72,6 +98,12 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
               <span className="tabular-nums">+{reward.vaultPct}%</span>
             </div>
           )}
+          {reward.challengeBonus > 0 && (
+            <div className="flex items-center justify-between text-sm font-bold text-orange-200">
+              <span>No Roar Trial bonus</span>
+              <span className="tabular-nums">+💎 {reward.challengeBonus}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-2xl font-black text-violet-300">
             <span>Gems</span>
             <span className="tabular-nums">💎 +{reward.total + (info.adClaimed ? reward.total : 0)}</span>
@@ -85,18 +117,48 @@ export default function ResultModal({ info, onRetry, onNext, onMenu, onShop, onW
         )}
 
         <button
-          disabled={info.adClaimed || info.adBusy}
-          onClick={onWatchAd}
-          className="mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-fuchsia-500 to-violet-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
+          onClick={async () => {
+            const text = `Can you stop the hero? I placed ${r.trapsPlaced} traps, landed ${r.trapHits} hits, and dealt ${Math.round(r.heroDamagePct * 100)}% damage on Floor ${floorIndex + 1}.`;
+            const url = shareUrl || window.location.href;
+            try {
+              if (navigator.share) {
+                await navigator.share({ title: "Demon Trap challenge", text, url });
+                setShareStatus("Challenge shared! 👹");
+                return;
+              }
+              await navigator.clipboard.writeText(`${text} ${url}`);
+              setShareStatus("Challenge link copied! Send it to a friend 👹");
+            } catch (error) {
+              if (error instanceof DOMException && error.name === "AbortError") return;
+              try {
+                await navigator.clipboard.writeText(`${text} ${url}`);
+                setShareStatus("Challenge link copied! Send it to a friend 👹");
+              } catch {
+                setShareStatus("Copy the game link from your browser to challenge a friend.");
+              }
+            }
+          }}
+          className="mt-3 w-full rounded-xl border-2 border-orange-200/40 bg-orange-300/10 py-2 text-sm font-bold text-orange-100 hover:bg-orange-300/20"
         >
-          {info.adClaimed ? "✅ Ad bonus claimed (2×)" : `🎬 Watch an ad for +${reward.total} gems`}
+          👹 Challenge a friend to stop this hero
         </button>
+        {shareStatus && <p aria-live="polite" className="mt-1 text-xs text-emerald-200">{shareStatus}</p>}
 
-        {!r.won && (
+        {!info.practiceOnly && (
+          <button
+            disabled={info.adClaimed || info.adBusy}
+            onClick={onWatchAd}
+            className="mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-fuchsia-500 to-violet-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
+          >
+            {info.adClaimed ? "✅ Ad bonus claimed (2×)" : `🎬 Watch an ad for +${reward.total} gems`}
+          </button>
+        )}
+
+        {!info.practiceOnly && !r.won && (
           <button
             disabled={info.adBusy || reviveBusy}
             onClick={onRevive}
-            className="mt-3 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-emerald-500 to-teal-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
+            className="mt-3 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-fuchsia-500 to-violet-700 py-3 text-lg font-black shadow-lg transition hover:brightness-110 disabled:opacity-40"
           >
             {info.adBusy || reviveBusy ? "🎬 Loading ad…" : "🎬 Watch an ad to revive! (Hero back at 50% HP)"}
           </button>

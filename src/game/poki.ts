@@ -156,7 +156,7 @@ export const Poki = {
   async commercialBreak(): Promise<void> {
     if (provider === "poki" && ready) {
       try {
-        await withTimeout(window.PokiSDK.commercialBreak(() => sfx.setAdMuted(true)), 10000, undefined);
+        await window.PokiSDK.commercialBreak(() => sfx.setAdMuted(true));
       } catch {
         /* ad failures are ignored */
       } finally {
@@ -166,15 +166,25 @@ export const Poki = {
     }
     if (provider === "crazy" && ready) {
       try {
-        await withTimeout(
-          crazy()?.ad?.requestAd("midgame", {
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = (error?: unknown) => {
+            if (settled) return;
+            settled = true;
+            if (error !== undefined) reject(error);
+            else resolve();
+          };
+          const requestAd = crazy()?.ad?.requestAd;
+          if (typeof requestAd !== "function") {
+            finish(new Error("CrazyGames ad API unavailable"));
+            return;
+          }
+          requestAd.call(crazy()?.ad, "midgame", {
             adStarted: () => sfx.setAdMuted(true),
-            adFinished: () => sfx.setAdMuted(false),
-            adError: () => sfx.setAdMuted(false),
-          }),
-          10000,
-          undefined,
-        );
+            adFinished: () => finish(),
+            adError: (error: unknown) => finish(error ?? new Error("CrazyGames ad error")),
+          });
+        });
       } catch {
         /* ad failures are ignored */
       } finally {
@@ -182,7 +192,8 @@ export const Poki = {
       }
       return;
     }
-    if (!adUI) return;
+    // Portal runs must never fall through to the local simulated ad UI.
+    if (env() !== null || !adUI) return;
     sfx.setAdMuted(true);
     try {
       await new Promise<void>((resolve) => adUI!("commercial", () => resolve()));
@@ -195,13 +206,7 @@ export const Poki = {
   async rewardedBreak(): Promise<boolean> {
     if (provider === "poki" && ready) {
       try {
-        return Boolean(
-          await withTimeout(
-            window.PokiSDK.rewardedBreak({ onStart: () => sfx.setAdMuted(true) }),
-            15000,
-            false,
-          ),
-        );
+        return Boolean(await window.PokiSDK.rewardedBreak({ onStart: () => sfx.setAdMuted(true) }));
       } catch {
         return false;
       } finally {
@@ -210,23 +215,24 @@ export const Poki = {
     }
     if (provider === "crazy" && ready) {
       try {
-        let ok = false;
-        await withTimeout(
-          crazy()?.ad?.requestAd("rewarded", {
+        return await new Promise<boolean>((resolve, reject) => {
+          let settled = false;
+          const finish = (ok: boolean) => {
+            if (settled) return;
+            settled = true;
+            resolve(ok);
+          };
+          const requestAd = crazy()?.ad?.requestAd;
+          if (typeof requestAd !== "function") {
+            reject(new Error("CrazyGames ad API unavailable"));
+            return;
+          }
+          requestAd.call(crazy()?.ad, "rewarded", {
             adStarted: () => sfx.setAdMuted(true),
-            adFinished: () => {
-              sfx.setAdMuted(false);
-              ok = true;
-            },
-            adError: () => {
-              sfx.setAdMuted(false);
-              ok = false;
-            },
-          }),
-          20000,
-          undefined,
-        );
-        return ok;
+            adFinished: () => finish(true),
+            adError: () => finish(false),
+          });
+        });
       } catch {
         return false;
       } finally {

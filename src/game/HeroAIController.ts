@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 import { minionStompChance, spikeReactionChance } from "./characterBehavior";
-import { GRAVITY, GROUND_Y, HERO_H, HERO_HALF_W, MINION_H } from "./constants";
+import { CELL, GRAVITY, GROUND_Y, HERO_H, HERO_HALF_W, MINION_H, SPIKE_H } from "./constants";
 import { HeroView } from "./characters";
 import type { Fx } from "./fx";
-import type { FloorDef, HeroCharacterDef, HeroHeroAI } from "./types";
+import type { FloorDef, HeroCharacterDef, HeroHeroAI, TrapStats, TrapType } from "./types";
 import type { Cluster, TrapManager } from "./TrapManager";
 
 export type DamageSource = "lava" | "spike" | "fire" | "contact" | "helm";
@@ -11,6 +11,7 @@ export type DamageSource = "lava" | "spike" | "fire" | "contact" | "helm";
 interface JumpPlan {
   c0: number; // jump once past this X (the centre of the window)
   b1: number; // past this X it is already too late
+  safeLanding: boolean;
 }
 
 /**
@@ -43,6 +44,8 @@ export class HeroAIController {
   brake = 0;
   slowMul = 1;
   slowT = 0;
+  private tidalRushMul = 1;
+  private tidalRushT = 0;
   roarT = 0;
   knockV = 0;
   invul = 0;
@@ -53,6 +56,9 @@ export class HeroAIController {
 
   private jitter = new Map<string, number>();
   private stompPref = new Map<string, boolean>();
+  private abyssEcho: Cluster | null = null;
+  private abyssEchoT = 0;
+  onAbyssEchoJump?: () => void;
 
   constructor(
     scene: Phaser.Scene,
@@ -104,6 +110,24 @@ export class HeroAIController {
     this.stun = Math.max(this.stun, t);
   }
 
+  applyTidalRush(multiplier: number, duration: number) {
+    this.tidalRushMul = Math.max(this.tidalRushMul, multiplier);
+    this.tidalRushT = Math.max(this.tidalRushT, duration);
+  }
+
+  applyAbyssEcho(cell: number, duration: number, serial: number) {
+    const x0 = cell * CELL;
+    this.abyssEcho = {
+      x0,
+      x1: x0 + CELL,
+      kind: "lava",
+      height: 0,
+      traps: [],
+      key: `abyss-echo:${serial}`,
+    };
+    this.abyssEchoT = Math.max(this.abyssEchoT, duration);
+  }
+
   knockback(v: number) {
     this.knockV = -Math.abs(v);
   }
@@ -142,6 +166,10 @@ export class HeroAIController {
     this.stun = Math.max(0, this.stun - dt);
     this.brake = Math.max(0, this.brake - dt);
     this.slowT = Math.max(0, this.slowT - dt);
+    this.tidalRushT = Math.max(0, this.tidalRushT - dt);
+    if (this.tidalRushT <= 0) this.tidalRushMul = 1;
+    this.abyssEchoT = Math.max(0, this.abyssEchoT - dt);
+    if (this.abyssEchoT <= 0) this.abyssEcho = null;
     this.roarT = Math.max(0, this.roarT - dt);
     this.invul = Math.max(0, this.invul - dt);
     this.contactCd = Math.max(0, this.contactCd - dt);
@@ -157,6 +185,7 @@ export class HeroAIController {
       if (this.roarT > 0) mul = Math.min(mul, 0.5);
     }
     let sp = this.floor.heroSpeed * (this.rage ? 1.08 : 1) * mul;
+    if (this.tidalRushT > 0) sp *= this.tidalRushMul;
     // too far behind -> the hero sprints to catch up (rubber band)
     if (this.targetDistance > 640 && mul > 0) sp *= 1 + Math.min((this.targetDistance - 640) / 400, 0.5);
     if (!active) sp = 0;
@@ -247,7 +276,7 @@ export class HeroAIController {
     }
 
     // 2) the cluster of traps ahead
-    const clusters = tm.getClusters();
+    const clusters = this.clustersWithAbyssEcho(tm);
     for (const c of clusters) {
       if (c.x1 + HERO_HALF_W < this.x) continue;
       if (c.x0 - this.x > 560) break; // too far to see it yet
@@ -255,10 +284,81 @@ export class HeroAIController {
       if (!plan) continue;
       if (this.x >= plan.c0 && this.x <= plan.b1) {
         this.jump();
+        if (this.abyssEcho?.key === c.key) this.onAbyssEchoJump?.();
         return;
       }
       if (this.x < plan.c0) break; // handle the nearest one first
     }
+  }
+
+  private clustersWithAbyssEcho(tm: TrapManager): Cluster[] {
+    const clusters = [...tm.getClusters()];
+    if (this.abyssEcho && this.abyssEchoT > 0) clusters.push(this.abyssEcho);
+    return clusters.sort((a, b) => a.x0 - b.x0);
+  }
+
+  /** Read-only estimate used by the placement ghost; never rolls or stores AI randomness. */
+  previewTrap(type: TrapType, cell: number, stats: TrapStats, tm: TrapManager): string {
+    if (!this.alive) return "HERO DOWN";
+    if (type === "Spike") {
+      const dodge = Math.round(spikeReactionChance(this.floor.heroDodge, this.character.behavior.spikeReactionBonus) * 100);
+      return `BRACE ${dodge}% · NO BRACE ${100 - dodge}%`;
+    }
+    if (type === "Minion") {
+      if (stats.spiked) return "SPIKED · NO STOMP";
+      const stomp = Math.round(minionStompChance(this.floor.heroSkill, this.character.behavior.stompChanceBonus) * 100);
+      return `STOMP RISK ${stomp}%`;
+    }
+    if (!this.onGround || this.stun > 0 || this.brake > 0 || this.jumpCd > 0) return "HERO BUSY · HIT CHANCE UP";
+    if (this.speed < 30) return "HERO SLOWED · HIT CHANCE UP";
+
+    const x0 = cell * CELL;
+    const candidate: Cluster = {
+      x0,
+      x1: x0 + CELL,
+      kind: "lava",
+      height: 0,
+      traps: [],
+      key: `preview:${cell}`,
+    };
+    const clusters = this.clustersWithAbyssEcho(tm);
+    // Treat contiguous existing traps as one obstacle, matching the live AI cluster model.
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const cluster of clusters) {
+        if (cluster === candidate || candidate.traps.includes(cluster.traps[0])) continue;
+        if (cluster.x1 === candidate.x0 || cluster.x0 === candidate.x1) {
+          candidate.x0 = Math.min(candidate.x0, cluster.x0);
+          candidate.x1 = Math.max(candidate.x1, cluster.x1);
+          candidate.height = Math.max(candidate.height, cluster.height);
+          candidate.kind = candidate.kind === "lava" && cluster.kind === "lava" ? "lava" : "solid";
+          candidate.traps.push(...cluster.traps);
+          changed = true;
+        }
+      }
+    }
+    candidate.key = `preview:${candidate.x0}:${candidate.x1}`;
+    candidate.traps.push({ type, stats } as Cluster["traps"][number]);
+    if (type !== "Lava") {
+      candidate.kind = "solid";
+      candidate.height = Math.max(candidate.height, type === "Spike" ? SPIKE_H : MINION_H);
+    }
+
+    for (const cluster of clusters) {
+      if (cluster.x1 + HERO_HALF_W < this.x) continue;
+      if (cluster.x0 - this.x > 560) break;
+      if (cluster.x0 >= candidate.x0) break;
+      const earlierPlan = this.plan(cluster, clusters, this.speed, true);
+      if (earlierPlan && this.x <= earlierPlan.b1) return "OTHER TRAP FIRST";
+    }
+
+    if (candidate.x0 - this.x > 560) return "WAIT · OUT OF SIGHT";
+    if (candidate.x1 + HERO_HALF_W < this.x) return "TOO LATE · BEHIND HERO";
+    const plan = this.plan(candidate, [...clusters, candidate], this.speed, true);
+    if (!plan) return "LIKELY HIT · NO SAFE JUMP";
+    if (this.x <= plan.b1) return plan.safeLanding ? "HERO WILL JUMP · CLEAR PATH" : "HERO WILL JUMP · RISKY LANDING";
+    return plan.safeLanding ? "JUMP WINDOW PASSED" : "TOO LATE · RISKY LANDING";
   }
 
   private landingSafe(c0: number, v: number, T: number, self: Cluster, all: Cluster[]): boolean {
@@ -273,7 +373,7 @@ export class HeroAIController {
     return true;
   }
 
-  private plan(c: Cluster, all: Cluster[], v: number): JumpPlan | null {
+  private plan(c: Cluster, all: Cluster[], v: number, preview = false): JumpPlan | null {
     const vy0 = this.floor.heroJump;
     const g = GRAVITY;
     const T = (2 * vy0) / g;
@@ -300,12 +400,15 @@ export class HeroAIController {
       t2 = (vy0 + r) / g;
     }
 
-    if (!this.jitter.has(c.key)) this.jitter.set(c.key, this.rollJitterPx());
-    const jit = this.jitter.get(c.key)!;
+    let jit = 0;
+    if (!preview) {
+      if (!this.jitter.has(c.key)) this.jitter.set(c.key, this.rollJitterPx());
+      jit = this.jitter.get(c.key)!;
+    }
 
     // stomp a minion (single, and not the spiked helm)
     if (c.traps.length === 1 && c.traps[0].type === "Minion" && !c.traps[0].stats.spiked) {
-      if (!this.stompPref.has(c.key)) {
+      if (!preview && !this.stompPref.has(c.key)) {
         const stompChance = minionStompChance(this.floor.heroSkill, this.character.behavior.stompChanceBonus);
         this.stompPref.set(c.key, Math.random() < stompChance);
       }
@@ -314,7 +417,7 @@ export class HeroAIController {
         if (disc > 0) {
           const ts = (vy0 + Math.sqrt(disc)) / g;
           const mid = (c.x0 + c.x1) / 2;
-          return { c0: mid - v * ts + jit * 0.5, b1: mid };
+          return { c0: mid - v * ts + jit * 0.5, b1: mid, safeLanding: true };
         }
       }
     }
@@ -322,6 +425,7 @@ export class HeroAIController {
     const lo = b1 - v * t2;
     const hi = b0 - v * t1;
     let base = (lo + hi) / 2;
+    let safeLanding = false;
     if (lo <= hi) {
       const span = hi - lo;
       const steps = Math.min(8, Math.floor(span / 6));
@@ -334,13 +438,14 @@ export class HeroAIController {
           if (this.landingSafe(cand, v, T, c, all)) {
             base = cand;
             found = true;
+            safeLanding = true;
             break;
           }
         }
       }
       if (!found) base = (lo + hi) / 2;
     }
-    return { c0: base + jit, b1 };
+    return { c0: base + jit, b1, safeLanding };
   }
 
   get bounds() {

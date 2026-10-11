@@ -7,7 +7,7 @@ import ResultModal, { type ResultInfo } from "./components/ResultModal";
 import Shop, { type ShopTab } from "./components/Shop";
 import { FLOORS } from "./game/config";
 import { readBossChallenge } from "./game/share";
-import { Poki, registerAdUI } from "./game/poki";
+import { PortalAd, registerAdUI } from "./game/portalAd";
 import {
   addGems,
   applyRunEnd,
@@ -61,7 +61,7 @@ export default function App() {
       adRef.current = a;
       setAd(a);
     });
-    Poki.init().then(() => Poki.loadingFinished());
+    PortalAd.init().then(() => PortalAd.loadingFinished());
     return () => registerAdUI(null);
   }, []);
 
@@ -86,9 +86,9 @@ export default function App() {
       setShop(null);
       setHelp(false);
       sessionRuns.current += 1;
-      // Signal every natural restart to Poki; the SDK decides whether to show an ad.
+      // Signal every natural restart to PortalAd
       if (sessionRuns.current > 1 && !opts?.skipCommercialBreak) {
-        await Poki.commercialBreak();
+        await PortalAd.commercialBreak();
       }
       const s = saveRef.current;
       const idx = practiceOnly ? targetFloor : Math.min(targetFloor, s.cleared);
@@ -103,14 +103,14 @@ export default function App() {
       setRunCfg(cfg);
       setRunKey((k) => k + 1);
       setScreen("play");
-      Poki.gameplayStart();
+      PortalAd.gameplayStart();
     } finally {
       starting.current = false;
     }
   }, []);
 
   const handleEnd = useCallback((r: RunResult) => {
-    Poki.gameplayStop();
+    PortalAd.gameplayStop();
     stopMusic();
     const cfg = cfgRef.current;
     if (!cfg) return;
@@ -128,7 +128,7 @@ export default function App() {
     const cur = resultRef.current;
     if (!cur || cur.practiceOnly || cur.adClaimed || cur.adBusy) return;
     setResult({ ...cur, adBusy: true });
-    const ok = await Poki.rewardedBreak();
+    const ok = await PortalAd.rewardedBreak();
     if (ok) {
       setSave((p) => addGems(p, cur.reward.total));
       sfx.coin();
@@ -143,7 +143,7 @@ export default function App() {
     const cur = resultRef.current;
     if (!cur || cur.practiceOnly || cur.r.won || cur.adBusy) return;
     setResult({ ...cur, adBusy: true });
-    const ok = await Poki.rewardedBreak();
+    const ok = await PortalAd.rewardedBreak();
     if (ok) {
       sfx.go();
       startRun(cur.floorIndex, { heroHpScale: 0.5, skipCommercialBreak: true, mode: cur.mode });

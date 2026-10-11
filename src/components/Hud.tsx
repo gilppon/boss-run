@@ -31,16 +31,19 @@ function Bar({
 }) {
   return (
     <div
-      className="w-full overflow-hidden rounded-full border-2 border-[#1b1020] bg-black/60"
+      className="w-full overflow-hidden rounded-full border-2 border-[#1b1020] bg-black/70 shadow-[inset_0_2px_6px_rgba(0,0,0,0.8)]"
       style={{ height }}
     >
       <div
-        className="h-full rounded-full transition-[width] duration-100"
+        className="relative h-full rounded-full transition-[width] duration-100"
         style={{
           width: `${Math.max(0, Math.min(1, pct)) * 100}%`,
           background: `linear-gradient(90deg, ${from}, ${to})`,
+          boxShadow: "0 0 12px rgba(255,255,255,0.3)",
         }}
-      />
+      >
+        <div className="absolute inset-x-0 top-0 h-[45%] rounded-t-full bg-white/25 pointer-events-none" />
+      </div>
     </div>
   );
 }
@@ -217,27 +220,28 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
                 bus.emit("select", t);
               }}
               className={[
-                "relative w-[150px] rounded-2xl border-[3px] px-3 py-2 text-left transition",
+                "relative w-[152px] rounded-2xl border-[3px] px-3 py-2 text-left transition-all duration-75 select-none",
+                "shadow-[0_6px_0_#150918,0_10px_20px_rgba(0,0,0,0.6)] active:translate-y-[4px] active:shadow-[0_2px_0_#150918]",
                 sel
-                  ? "scale-105 border-yellow-300 bg-gradient-to-b from-[#4a1d3a] to-[#2a0f24] shadow-[0_0_24px_rgba(255,214,80,0.5)]"
-                  : "border-[#1b1020] bg-black/65 hover:bg-black/80",
-                locked ? "opacity-45 grayscale" : "",
+                  ? "border-yellow-300 bg-gradient-to-b from-[#5c2448] to-[#2e1028] shadow-[0_6px_0_#caa124,0_0_28px_rgba(255,214,80,0.6)]"
+                  : "border-[#2b172a] bg-gradient-to-b from-[#241320] to-[#140b12] hover:brightness-110",
+                locked ? "opacity-45 grayscale pointer-events-none" : "cursor-pointer",
               ].join(" ")}
             >
               <div className="flex items-center gap-2">
-                <span className="text-3xl leading-none">{locked ? "🔒" : d.icon}</span>
+                <span className="text-3xl leading-none drop-shadow">{locked ? "🔒" : d.icon}</span>
                 <div className="leading-tight">
-                  <div className="text-base font-black">{d.short}</div>
+                  <div className="text-base font-black drop-shadow">{d.short}</div>
                   <div className={`text-sm font-bold tabular-nums ${afford ? "text-violet-300" : "text-rose-400"}`}>
                     💜 {st.cost}
                   </div>
                 </div>
               </div>
-              <div className="absolute -top-2 -left-2 flex h-6 w-6 items-center justify-center rounded-md border-2 border-[#1b1020] bg-yellow-300 text-xs font-black text-black">
+              <div className="absolute -top-2 -left-2 flex h-6 w-6 items-center justify-center rounded-md border-2 border-[#1b1020] bg-yellow-300 text-xs font-black text-black shadow-sm">
                 {d.hotkey}
               </div>
               {!locked && (
-                <div className="mt-1 text-[11px] font-bold text-white/60">
+                <div className="mt-1 text-[11px] font-bold text-white/70">
                   Lv.{st.level} · DMG {st.damage}
                 </div>
               )}
@@ -256,10 +260,11 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
           }}
           disabled={roarSealed || !roarReady}
           className={[
-            "relative flex h-[92px] w-[176px] flex-col items-center justify-center overflow-hidden rounded-2xl border-[3px] font-black transition",
+            "relative flex h-[92px] w-[176px] flex-col items-center justify-center overflow-hidden rounded-2xl border-[3px] font-black transition-all duration-75 select-none",
+            "shadow-[0_6px_0_#501108,0_10px_24px_rgba(0,0,0,0.7)] active:translate-y-[4px] active:shadow-[0_2px_0_#501108]",
             roarReady && !roarSealed
-              ? "border-yellow-300 bg-gradient-to-b from-orange-500 to-red-700 shadow-[0_0_28px_rgba(255,140,40,0.7)] hover:scale-105"
-              : "border-[#1b1020] bg-black/70 text-white/60",
+              ? "border-yellow-300 bg-gradient-to-b from-orange-500 via-red-600 to-red-800 shadow-[0_6px_0_#8b1c0b,0_0_32px_rgba(255,120,30,0.8)] hover:brightness-110 cursor-pointer"
+              : "border-[#2b172a] bg-gradient-to-b from-[#241320] to-[#140b12] text-white/50 cursor-not-allowed",
           ].join(" ")}
         >
           {!roarReady && !roarSealed && (

@@ -25,6 +25,9 @@ export class HeroView {
   private braceT = 0;
   private landT = 0;
   private animationState: HeroAnimationState = "idle";
+  private hdSprite?: Phaser.GameObjects.Image;
+  private hdBaseScaleX = 1;
+  private hdBaseScaleY = 1;
 
   constructor(scene: Phaser.Scene, private def: HeroCharacterDef) {
     const p = def.palette;
@@ -74,7 +77,33 @@ export class HeroView {
     this.flashG.fillEllipse(0, -34, 28, 60);
     this.flashG.setAlpha(0);
 
-    this.container.add([this.cape, this.armB, this.legB, this.torso, this.legF, this.head, this.armF, this.gear, this.rageG, this.flashG]);
+    const textureKey = `hero_${def.silhouette}`;
+    if (scene.textures.exists(textureKey)) {
+      this.hdSprite = scene.add.image(0, -42, textureKey);
+      const targetW = def.silhouette === "warden" ? 92 : def.silhouette === "breaker" ? 96 : 84;
+      const targetH = def.silhouette === "warden" ? 96 : def.silhouette === "breaker" ? 96 : 88;
+      const frame = this.hdSprite.frame;
+      const origW = frame && frame.width > 0 ? frame.width : targetW;
+      const origH = frame && frame.height > 0 ? frame.height : targetH;
+      this.hdBaseScaleX = targetW / origW;
+      this.hdBaseScaleY = targetH / origH;
+      this.hdSprite.setScale(this.hdBaseScaleX, this.hdBaseScaleY);
+      this.cape.setVisible(false);
+      this.armB.setVisible(false);
+      this.legB.setVisible(false);
+      this.torso.setVisible(false);
+      this.legF.setVisible(false);
+      this.head.setVisible(false);
+      this.armF.setVisible(false);
+      this.gear.setVisible(false);
+    }
+
+    const elements: Phaser.GameObjects.GameObject[] = [
+      this.cape, this.armB, this.legB, this.torso, this.legF, this.head, this.armF, this.gear
+    ];
+    if (this.hdSprite) elements.push(this.hdSprite);
+    elements.push(this.rageG, this.flashG);
+    this.container.add(elements);
   }
 
   private drawCape() {
@@ -198,6 +227,41 @@ export class HeroView {
     this.head.y = 0;
     this.rageG.setAlpha(rage ? 0.28 + Math.sin(this.phase * 2) * 0.1 : 0);
 
+    if (this.hdSprite) {
+      if (this.animationState === "death") {
+        this.hdSprite.rotation = -1.57;
+        this.hdSprite.y = -15;
+      } else if (this.animationState === "jump") {
+        this.hdSprite.clearTint();
+        this.hdSprite.rotation = -0.15;
+        this.hdSprite.y = -42;
+      } else if (this.animationState === "fall") {
+        this.hdSprite.clearTint();
+        this.hdSprite.rotation = 0.15;
+        this.hdSprite.y = -35;
+      } else if (this.animationState === "run") {
+        this.hdSprite.clearTint();
+        const bob = -Math.abs(Math.cos(this.phase)) * 3.5;
+        this.hdSprite.y = -38 + bob;
+        this.hdSprite.rotation = Math.sin(this.phase) * 0.08;
+      } else if (this.animationState === "hit" || this.animationState === "stun") {
+        this.hdSprite.setTint(0xff6666);
+        this.hdSprite.y = -38 + Math.sin(this.phase * 12) * 1.5;
+        this.hdSprite.rotation = this.animationState === "hit" ? 0.12 : Math.sin(this.phase * 18) * 0.08;
+      } else if (this.animationState === "brace" || this.animationState === "land") {
+        this.hdSprite.clearTint();
+        this.hdSprite.y = -36;
+        this.hdSprite.setScale(this.hdBaseScaleX * 1.08, this.hdBaseScaleY * 0.88);
+      } else {
+        this.hdSprite.clearTint();
+        const breath = Math.sin(this.phase) * (this.animationState === "rage" ? 1.2 : 0.7);
+        this.hdSprite.y = -38 - breath;
+        this.hdSprite.rotation = 0;
+        this.hdSprite.setScale(this.hdBaseScaleX, this.hdBaseScaleY);
+      }
+      return;
+    }
+
     if (this.animationState === "death") {
       this.armF.rotation = -2.7;
       this.armB.rotation = -2.4;
@@ -294,6 +358,7 @@ export class BossView {
   private wings?: G;
   private flashG: G;
   private aura?: Phaser.GameObjects.Image;
+  private hdSprite?: Phaser.GameObjects.Image;
   private phase = 0;
   private roarT = 0;
   private hitT = 0;
@@ -452,6 +517,28 @@ export class BossView {
 
     this.armF = this.makeArm(scene, p.body, p.horn);
 
+    const BOSS_TEX_MAP: Record<string, string> = {
+      "Lil' Demon": "boss_demon",
+      "Hell King": "boss_hell_king",
+      "Abyss Lord": "boss_abyss_lord",
+      "Last Emperor": "boss_last_emperor",
+    };
+    const bossTexKey = BOSS_TEX_MAP[def.name] ?? "boss_demon";
+    if (scene.textures.exists(bossTexKey)) {
+      this.hdSprite = scene.add.image(0, -96, bossTexKey);
+      const targetSize = def.name === "Last Emperor" ? 220 : def.name === "Abyss Lord" ? 210 : def.name === "Hell King" ? 200 : 190;
+      this.hdSprite.setDisplaySize(targetSize, targetSize);
+      this.armB.setVisible(false);
+      this.legB.setVisible(false);
+      body.setVisible(false);
+      this.legF.setVisible(false);
+      head.setVisible(false);
+      this.armF.setVisible(false);
+      this.tail.setVisible(false);
+      if (this.wings) this.wings.setVisible(false);
+      parts.push(this.hdSprite);
+    }
+
     this.flashG = scene.add.graphics();
     this.flashG.fillStyle(0xffffff, 1);
     this.flashG.fillEllipse(0, -80, 108, 102);
@@ -498,6 +585,18 @@ export class BossView {
     this.hitT = Math.max(0, this.hitT - dt);
     const s = Math.sin(this.phase);
     const moving = speed > 20;
+
+    if (this.hdSprite) {
+      if (this.roarT > 0) {
+        this.hdSprite.setTint(0xffbb55);
+      } else if (this.hitT > 0) {
+        this.hdSprite.setTint(0xff5555);
+      } else {
+        this.hdSprite.clearTint();
+      }
+      this.hdSprite.rotation = moving ? Math.sin(this.phase) * 0.04 : 0;
+    }
+
     this.legF.rotation = moving ? s * 0.7 : Math.sin(this.phase * 0.5) * 0.025;
     this.legB.rotation = moving ? -s * 0.7 : -Math.sin(this.phase * 0.5) * 0.025;
     this.armF.rotation = this.roarT > 0 ? -1.8 : moving ? -s * 0.6 - 0.2 : -0.18;

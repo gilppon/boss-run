@@ -40,9 +40,23 @@ const CATHEDRAL_BELL_INTERVAL = MUSIC_STEP_SECONDS * 64;
 const CATHEDRAL_BELL_WARNING = MUSIC_STEP_SECONDS * 8;
 const CATHEDRAL_RESONANCE_DURATION = MUSIC_STEP_SECONDS * 16;
 
+import type { GameSprites } from "./assets";
+
 export interface SceneInit {
   config: RunConfig;
   backdrop: HTMLImageElement | null;
+  sprites?: GameSprites;
+}
+
+interface HeroProjectile {
+  g: Phaser.GameObjects.Graphics;
+  x: number;
+  y: number;
+  vx: number;
+  damage: number;
+  type: string;
+  alive: boolean;
+  color: number;
 }
 
 /**
@@ -54,10 +68,12 @@ export interface SceneInit {
 export class BossScene extends Phaser.Scene {
   private cfg!: RunConfig;
   private backdropImg: HTMLImageElement | null = null;
+  private spritesData?: GameSprites;
 
   private fx!: Fx;
   private tm!: TrapManager;
   private hero!: HeroAIController;
+  private heroProjectiles: HeroProjectile[] = [];
   private bossView!: BossView;
   private bossShadow!: Phaser.GameObjects.Image;
   private heroBar!: Phaser.GameObjects.Graphics;
@@ -126,6 +142,7 @@ export class BossScene extends Phaser.Scene {
   init(data: SceneInit) {
     this.cfg = data.config;
     this.backdropImg = data.backdrop;
+    this.spritesData = data.sprites;
     this.bgImgs = [];
     this.offs = [];
     this.cleaned = false;
@@ -135,6 +152,7 @@ export class BossScene extends Phaser.Scene {
     this.bossHp = data.config.boss.maxHp;
     this.mana = data.config.boss.maxMana;
     this.roarCd = 0;
+    this.heroProjectiles = [];
     this.selected = "Lava";
     this.t = 0;
     this.introT = 0;
@@ -180,6 +198,57 @@ export class BossScene extends Phaser.Scene {
     cam.setBackgroundColor("#12060d");
     createTextures(this);
 
+    if (this.spritesData) {
+      if (this.spritesData.bossDemon) {
+        if (this.textures.exists("boss_demon")) this.textures.remove("boss_demon");
+        this.textures.addImage("boss_demon", this.spritesData.bossDemon);
+      }
+      if (this.spritesData.bossHellKing) {
+        if (this.textures.exists("boss_hell_king")) this.textures.remove("boss_hell_king");
+        this.textures.addImage("boss_hell_king", this.spritesData.bossHellKing);
+      }
+      if (this.spritesData.bossAbyssLord) {
+        if (this.textures.exists("boss_abyss_lord")) this.textures.remove("boss_abyss_lord");
+        this.textures.addImage("boss_abyss_lord", this.spritesData.bossAbyssLord);
+      }
+      if (this.spritesData.bossLastEmperor) {
+        if (this.textures.exists("boss_last_emperor")) this.textures.remove("boss_last_emperor");
+        this.textures.addImage("boss_last_emperor", this.spritesData.bossLastEmperor);
+      }
+      if (this.spritesData.heroApprentice) {
+        if (this.textures.exists("hero_apprentice")) this.textures.remove("hero_apprentice");
+        this.textures.addImage("hero_apprentice", this.spritesData.heroApprentice);
+      }
+      if (this.spritesData.heroScout) {
+        if (this.textures.exists("hero_scout")) this.textures.remove("hero_scout");
+        this.textures.addImage("hero_scout", this.spritesData.heroScout);
+      }
+      if (this.spritesData.heroWarden) {
+        if (this.textures.exists("hero_warden")) this.textures.remove("hero_warden");
+        this.textures.addImage("hero_warden", this.spritesData.heroWarden);
+      }
+      if (this.spritesData.heroBreaker) {
+        if (this.textures.exists("hero_breaker")) this.textures.remove("hero_breaker");
+        this.textures.addImage("hero_breaker", this.spritesData.heroBreaker);
+      }
+      if (this.spritesData.heroDuelist) {
+        if (this.textures.exists("hero_duelist")) this.textures.remove("hero_duelist");
+        this.textures.addImage("hero_duelist", this.spritesData.heroDuelist);
+      }
+      if (this.spritesData.minionImp) {
+        if (this.textures.exists("minion_imp")) this.textures.remove("minion_imp");
+        this.textures.addImage("minion_imp", this.spritesData.minionImp);
+      }
+      if (this.spritesData.tileGround) {
+        if (this.textures.exists("tile_ground")) this.textures.remove("tile_ground");
+        this.textures.addImage("tile_ground", this.spritesData.tileGround);
+      }
+      if (this.spritesData.pillarsHd) {
+        if (this.textures.exists("pillars_hd")) this.textures.remove("pillars_hd");
+        this.textures.addImage("pillars_hd", this.spritesData.pillarsHd);
+      }
+    }
+
     // ----- background (mirrored repeat for a seamless parallax) -----
     if (this.backdropImg) {
       if (this.textures.exists("bg")) this.textures.remove("bg");
@@ -190,17 +259,21 @@ export class BossScene extends Phaser.Scene {
         this.bgImgs.push(img);
       }
     }
-    this.add.rectangle(W / 2, H / 2, W, H, 0x12060d, this.backdropImg ? 0.35 : 1).setScrollFactor(0).setDepth(-9);
+    this.add.rectangle(W / 2, H / 2, W, H, 0x12060d, this.backdropImg ? 0.15 : 0.9).setScrollFactor(0).setDepth(-9);
+
+    // ----- midground pillars (HD texture if exists, else fallback canvas pillars) -----
+    const pillarsKey = this.textures.exists("pillars_hd") ? "pillars_hd" : "pillars";
     this.pillars = this.add
-      .tileSprite(0, 0, W, H, "pillars")
+      .tileSprite(0, 50, W + 400, 540, pillarsKey)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(-5)
-      .setAlpha(0.75);
+      .setAlpha(this.textures.exists("pillars_hd") ? 0.92 : 0.75);
 
-    // ----- ground -----
+    // ----- ground (HD tile_ground if exists, else fallback canvas ground) -----
+    const groundKey = this.textures.exists("tile_ground") ? "tile_ground" : "ground";
     this.ground = this.add
-      .tileSprite(0, GROUND_Y, W + 96, 170, "ground")
+      .tileSprite(0, GROUND_Y, W + 96, 180, groundKey)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(1);
@@ -288,6 +361,7 @@ export class BossScene extends Phaser.Scene {
 
     this.hero = new HeroAIController(this, this.cfg.floor, HERO_CHARACTERS[this.cfg.floor.heroId], this.bossX - START_GAP, this.fx, this.cfg.heroHpScale ?? 1);
     this.hero.onDamage = (amount, source, x, y) => this.onHeroDamaged(amount, source, x, y);
+    this.hero.onAttack = (type, x, y, isMelee) => this.handleHeroAttack(type, x, y, isMelee);
     this.hero.onAbyssEchoJump = () => {
       this.abyssResultT = 1.15;
       const landingX = (this.abyssEchoCell + ABYSS_LANDING_CELLS) * CELL + CELL / 2;
@@ -353,6 +427,10 @@ export class BossScene extends Phaser.Scene {
   private cleanup() {
     if (this.cleaned) return;
     this.cleaned = true;
+    for (const p of this.heroProjectiles) {
+      p.g.destroy();
+    }
+    this.heroProjectiles = [];
     this.offs.forEach((f) => f());
     this.offs = [];
   }
@@ -431,6 +509,18 @@ export class BossScene extends Phaser.Scene {
     this.fx.ring(this.bossX - 20, GROUND_Y - 100, 0xffe28a, 10 * power);
     this.fx.burst(this.bossX - 40, GROUND_Y - 60, 26, { colors: [0xffe28a, 0xff6a3d], speed: 420, life: 0.6, gravity: 0, size: 0.5, spreadX: 1.4 });
     this.fx.text(this.bossX - 40, GROUND_Y - 230 * this.cfg.boss.scale, "ROAR!", "#ffb02e", 34);
+    // 영웅 투사체 즉시 패링 파괴!
+    for (let i = this.heroProjectiles.length - 1; i >= 0; i--) {
+      const p = this.heroProjectiles[i];
+      if (Math.abs(p.x - this.bossX) < 420) {
+        p.alive = false;
+        p.g.destroy();
+        this.heroProjectiles.splice(i, 1);
+        this.fx.text(p.x, p.y - 20, "PARRIED! +10 MANA", "#fde047", 26);
+        this.fx.burst(p.x, p.y, 16, { colors: [0xffffff, 0xfde047], speed: 280, life: 0.4 });
+        this.mana = Math.min(this.cfg.boss.maxMana, this.mana + 10);
+      }
+    }
     if (this.hero.alive) {
       this.hero.knockback(1000 * Math.sqrt(power));
       this.hero.roarT = 2.5;
@@ -492,6 +582,194 @@ export class BossScene extends Phaser.Scene {
     if (this.bossHp <= 0) this.finish("boss-defeated");
   }
 
+  private handleHeroAttack(type: string, x: number, y: number, isMelee: boolean) {
+    if (this.ended) return;
+
+    if (isMelee) {
+      // 💥 영웅의 강력한 근접 참격 공격 (Melee Cleave)
+      sfx.fire();
+      this.hero.view.launch();
+      this.fx.ring(x + 20, y, 0xff3b3b, 14);
+      this.fx.burst(x + 30, y, 16, { colors: [0xffffff, 0xff3b3b, 0xffa500], speed: 280, life: 0.35 });
+      this.fx.text(x + 10, y - 42, "⚔️ MELEE CLEAVE!", "#ff4444", 26);
+
+      const dmg = 14;
+      this.bossHp = Math.max(0, this.bossHp - dmg);
+      this.bossView.flash();
+      sfx.bossHurt();
+      this.cameras.main.shake(220, 0.015);
+      this.fx.text(this.bossX, GROUND_Y - 150 * this.cfg.boss.scale, `-${dmg} HP`, "#ff3b3b", 36);
+      this.emitHud();
+      if (this.bossHp <= 0) this.finish("boss-defeated");
+      return;
+    }
+
+    // 🏹 화려한 원거리 스킬 발사!
+    this.spawnHeroProjectile(type, x, y);
+
+    // Stage 1 & 2 영웅은 빠른 2연타 연속 발사!
+    if (type === "apprentice" || type === "scout") {
+      this.time.delayedCall(220, () => {
+        if (!this.ended && this.hero.alive && this.hero.targetDistance > 100) {
+          this.spawnHeroProjectile(type, this.hero.x + 24, this.hero.y - 36, true);
+        }
+      });
+    }
+  }
+
+  private spawnHeroProjectile(type: string, x: number, y: number, isSecond = false) {
+    if (this.ended) return;
+    const g = this.add.graphics().setDepth(25);
+    let vx = 620;
+    let damage = 12;
+    let color = 0x38bdf8;
+    let label = isSecond ? "COMBO SLASH!" : "HOLY SLASH!";
+    let textColor = "#38bdf8";
+
+    if (type === "scout") {
+      vx = 740;
+      damage = 9;
+      color = 0x34d399;
+      label = isSecond ? "SHADOW DAGGER II!" : "SHADOW DAGGER!";
+      textColor = "#34d399";
+      // 빛나는 고속 비수 단검
+      g.fillStyle(color, 1);
+      g.fillTriangle(-18, -6, 22, 0, -18, 6);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillTriangle(-10, -2, 16, 0, -10, 2);
+      g.lineStyle(2, 0x6ee7b7, 0.95);
+      g.strokeTriangle(-18, -6, 22, 0, -18, 6);
+    } else if (type === "warden") {
+      vx = 520;
+      damage = 18;
+      color = 0xf97316;
+      label = "EARTH SHATTER!";
+      textColor = "#f97316";
+      // 거대한 용암 화염 충격파
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(-18, -26, 36, 52, 8);
+      g.fillStyle(0xfde047, 1);
+      g.fillRoundedRect(-10, -18, 20, 36, 6);
+      g.lineStyle(3, 0xffffff, 0.9);
+      g.strokeRoundedRect(-18, -26, 36, 52, 8);
+    } else if (type === "breaker") {
+      vx = 480;
+      damage = 20;
+      color = 0xa855f7;
+      label = "VOID GRAVITY ORB!";
+      textColor = "#a855f7";
+      // 심연의 보라색 중력 구체
+      g.fillStyle(color, 1);
+      g.fillCircle(0, 0, 20);
+      g.fillStyle(0x38bdf8, 0.85);
+      g.fillCircle(0, 0, 10);
+      g.lineStyle(3, 0xf0abfc, 0.95);
+      g.strokeCircle(0, 0, 20);
+    } else if (type === "duelist") {
+      vx = 820;
+      damage = 22;
+      color = 0xfacc15;
+      label = "ROYAL PIERCING RAY!";
+      textColor = "#facc15";
+      // 황금빛 초고속 관통 레이저 빔
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(-32, -6, 64, 12, 4);
+      g.fillStyle(0xffffff, 1);
+      g.fillRoundedRect(-24, -3, 48, 6, 2);
+      g.lineStyle(2, 0xfef08a, 0.95);
+      g.strokeRoundedRect(-32, -6, 64, 12, 4);
+    } else {
+      // 견습 용사의 신성 반월 참격파 (Apprentice)
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.arc(0, 0, 24, -Math.PI / 2, Math.PI / 2);
+      g.lineTo(-8, 0);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xffffff, 0.85);
+      g.beginPath();
+      g.arc(0, 0, 14, -Math.PI / 2, Math.PI / 2);
+      g.lineTo(-4, 0);
+      g.closePath();
+      g.fillPath();
+      g.lineStyle(2.5, 0xbae6fd, 0.95);
+      g.strokePath();
+    }
+
+    g.setPosition(x, y);
+    this.fx.text(x, y - 30, label, textColor, 21);
+    this.fx.burst(x, y, 8, { colors: [color, 0xffffff], speed: 160, life: 0.3 });
+    sfx.fire();
+
+    this.heroProjectiles.push({ g, x, y, vx, damage, type, alive: true, color });
+  }
+
+  private updateHeroProjectiles(dt: number) {
+    for (let i = this.heroProjectiles.length - 1; i >= 0; i--) {
+      const p = this.heroProjectiles[i];
+      if (!p.alive) {
+        p.g.destroy();
+        this.heroProjectiles.splice(i, 1);
+        continue;
+      }
+
+      p.x += p.vx * dt;
+      p.g.setPosition(p.x, p.y);
+
+      if (Math.random() < 0.4) {
+        this.fx.burst(p.x - 10, p.y, 1, { colors: [p.color], speed: 20, life: 0.2, size: 0.2 });
+      }
+
+      // 1. 미니언 고기방패 방어
+      let blocked = false;
+      for (const m of this.tm.traps) {
+        if (m.type === "Minion" && m.state !== "dead") {
+          const mx = m.cell * CELL + CELL / 2;
+          if (Math.abs(p.x - mx) < 32) {
+            m.state = "dead";
+            m.sprite.destroy();
+            blocked = true;
+            this.fx.text(mx, GROUND_Y - 50, "MINION BLOCKED!", "#93c5fd", 22);
+            this.fx.burst(mx, GROUND_Y - 30, 12, { colors: [0xf43f5e, 0xffffff], speed: 220, life: 0.35 });
+            sfx.stomp();
+            break;
+          }
+        }
+      }
+      if (blocked) {
+        p.alive = false;
+        p.g.destroy();
+        this.heroProjectiles.splice(i, 1);
+        continue;
+      }
+
+      // 3. 보스 본체 피격
+      if (p.x >= this.bossX - this.bossHalfW) {
+        p.alive = false;
+        p.g.destroy();
+        this.heroProjectiles.splice(i, 1);
+        this.bossHp = Math.max(0, this.bossHp - p.damage);
+        this.bossView.flash();
+        sfx.bossHurt();
+        this.cameras.main.shake(180, 0.01);
+        this.fx.text(this.bossX, GROUND_Y - 140 * this.cfg.boss.scale, `-${p.damage}`, "#ef4444", 34);
+        this.fx.burst(this.bossX - 10, p.y, 14, { colors: [0xff4444, 0xffa500, 0xffffff], speed: 240, life: 0.4 });
+        this.emitHud();
+        if (this.bossHp <= 0) {
+          this.finish("boss-defeated");
+        }
+        continue;
+      }
+
+      // 4. 화면 초과 소멸
+      if (p.x > this.bossX + 300) {
+        p.alive = false;
+        p.g.destroy();
+        this.heroProjectiles.splice(i, 1);
+      }
+    }
+  }
+
   private comboWindow(): number {
     return BASE_COMBO_WINDOW + (this.cfg.floorIndex === 4 && this.cathedralResonanceT > 0 ? CATHEDRAL_RESONANCE_DURATION : 0);
   }
@@ -499,6 +777,10 @@ export class BossScene extends Phaser.Scene {
   private finish(reason: EndReason) {
     if (this.ended) return;
     this.ended = true;
+    for (const p of this.heroProjectiles) {
+      p.g.destroy();
+    }
+    this.heroProjectiles = [];
     this.dragging = false;
     this.sewerNotice?.setVisible(false);
     this.forgeNotice?.setVisible(false);
@@ -604,6 +886,7 @@ export class BossScene extends Phaser.Scene {
       }
       this.hero.update(dt, this.tm, this.bossX, active);
       this.tm.update(dt, this.hero, cam.scrollX);
+      if (active) this.updateHeroProjectiles(dt);
 
       if (active && this.hero.alive && this.hero.contactCd <= 0 && this.hero.x + HERO_HALF_W >= this.bossX - this.bossHalfW) {
         this.bossHit();
@@ -872,10 +1155,10 @@ export class BossScene extends Phaser.Scene {
   private updateBackground(scrollX: number) {
     if (this.bgImgs.length) {
       const period = W * 2;
-      const x0 = -((scrollX * 0.12) % period);
+      const x0 = -((scrollX * 0.10) % period);
       this.bgImgs.forEach((img, i) => img.setX(Math.round(x0 + i * W)));
     }
-    this.pillars.tilePositionX = scrollX * 0.45;
+    this.pillars.tilePositionX = scrollX * 0.32;
     this.ground.tilePositionX = scrollX;
   }
 

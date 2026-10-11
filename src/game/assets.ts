@@ -29,3 +29,54 @@ export function loadBackdrop(floorIndex = 0): Promise<HTMLImageElement | null> {
   }
   return promise;
 }
+
+export interface GameSprites {
+  bossDemon: HTMLImageElement | null;
+  bossHellKing: HTMLImageElement | null;
+  bossAbyssLord: HTMLImageElement | null;
+  bossLastEmperor: HTMLImageElement | null;
+  heroApprentice: HTMLImageElement | null;
+  heroScout: HTMLImageElement | null;
+  heroWarden: HTMLImageElement | null;
+  heroBreaker: HTMLImageElement | null;
+  heroDuelist: HTMLImageElement | null;
+  minionImp: HTMLImageElement | null;
+  tileGround: HTMLImageElement | null;
+  pillarsHd: HTMLImageElement | null;
+}
+
+let cachedSprites: Promise<GameSprites> | null = null;
+
+export function loadSprites(): Promise<GameSprites> {
+  if (!cachedSprites) {
+    cachedSprites = Promise.all([
+      loadImage("./sprites/boss_demon.webp"),
+      loadImage("./sprites/boss_hell_king.webp"),
+      loadImage("./sprites/boss_abyss_lord.webp"),
+      loadImage("./sprites/boss_last_emperor.webp"),
+      loadImage("./sprites/hero_apprentice.webp"),
+      loadImage("./sprites/hero_scout.webp"),
+      loadImage("./sprites/hero_warden.webp"),
+      loadImage("./sprites/hero_breaker.webp"),
+      loadImage("./sprites/hero_duelist.webp"),
+      loadImage("./sprites/minion_imp.webp"),
+      loadImage("./sprites/tile_ground.webp"),
+      loadImage("./sprites/pillars_hd.webp"),
+    ]).then(([bossDemon, bossHellKing, bossAbyssLord, bossLastEmperor, heroApprentice, heroScout, heroWarden, heroBreaker, heroDuelist, minionImp, tileGround, pillarsHd]) => ({
+      bossDemon,
+      bossHellKing,
+      bossAbyssLord,
+      bossLastEmperor,
+      heroApprentice,
+      heroScout,
+      heroWarden,
+      heroBreaker,
+      heroDuelist,
+      minionImp,
+      tileGround,
+      pillarsHd,
+    }));
+  }
+  return cachedSprites;
+}
+

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { useEffect, useRef, useState } from "react";
-import { loadBackdrop } from "../game/assets";
+import { loadBackdrop, loadSprites } from "../game/assets";
 import { BossScene } from "../game/BossScene";
 import { bus } from "../game/bus";
 import { H, W } from "../game/constants";
@@ -24,7 +24,7 @@ export default function GameCanvas({ config, onEnd, className }: Props) {
     let cancelled = false;
     const off = bus.on("end", (r: RunResult) => endRef.current(r));
 
-    loadBackdrop(config.floorIndex).then((img) => {
+    Promise.all([loadBackdrop(config.floorIndex), loadSprites()]).then(([img, sprites]) => {
       if (cancelled || !ref.current) return;
       game = new Phaser.Game({
         type: Phaser.AUTO,
@@ -37,7 +37,7 @@ export default function GameCanvas({ config, onEnd, className }: Props) {
         render: { antialias: true, powerPreference: "high-performance" },
         banner: false,
       });
-      game.scene.add("BossScene", BossScene, true, { config, backdrop: img });
+      game.scene.add("BossScene", BossScene, true, { config, backdrop: img, sprites });
       if (!cancelled) setReady(true);
     });
 

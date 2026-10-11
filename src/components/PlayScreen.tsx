@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bus } from "../game/bus";
 import { W } from "../game/constants";
-import { Poki } from "../game/poki";
+import { PortalAd } from "../game/portalAd";
 import type { HudState, RunConfig, RunResult } from "../game/types";
 import GameCanvas from "./GameCanvas";
 import Hud from "./Hud";
@@ -67,8 +67,8 @@ export default function PlayScreen({ config, showHint, soundOn, musicVolume, sfx
     pausedRef.current = v;
     setPaused(v);
     bus.emit("pause", v);
-    if (v) Poki.gameplayStop();
-    else Poki.gameplayStart();
+    if (v) PortalAd.gameplayStop();
+    else PortalAd.gameplayStart();
   }, []);
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function PlayScreen({ config, showHint, soundOn, musicVolume, sfx
               </button>
               <button
                 onClick={() => {
-                  Poki.gameplayStop();
+                  PortalAd.gameplayStop();
                   onQuit();
                 }}
                 className="w-64 rounded-2xl border-4 border-[#1b1020] bg-black/70 py-3 text-xl font-bold hover:bg-black"

@@ -38,6 +38,12 @@ export class HeroAIController {
   private shadow: Phaser.GameObjects.Image;
 
   onDamage?: (amount: number, source: DamageSource, x: number, y: number) => void;
+  onAttack?: (type: string, x: number, y: number, isMelee: boolean) => void;
+
+  // combat attack timer (starts fast so combat begins quickly!)
+  attackCd = 1.0;
+  isCharging = false;
+  chargeT = 0;
 
   // status effects
   stun = 0;
@@ -95,6 +101,12 @@ export class HeroAIController {
     this.health = Math.max(0, this.health - amount);
     this.invul = 0.55;
     this.view.flash();
+    if (this.isCharging) {
+      this.isCharging = false;
+      this.chargeT = 0;
+      this.attackCd = 1.6;
+      this.fx.text(this.x, this.y - 70, "INTERRUPTED!", "#38bdf8", 24);
+    }
     this.onDamage?.(amount, source, hx, hy);
     if (this.health <= 0) this.die();
     else if (this.health / this.maxHealth < 0.35) this.rage = true;
@@ -108,6 +120,12 @@ export class HeroAIController {
 
   applyStun(t: number) {
     this.stun = Math.max(this.stun, t);
+    if (this.isCharging) {
+      this.isCharging = false;
+      this.chargeT = 0;
+      this.attackCd = 1.6;
+      this.fx.text(this.x, this.y - 70, "STUNNED!", "#facc15", 24);
+    }
   }
 
   applyTidalRush(multiplier: number, duration: number) {
@@ -193,6 +211,26 @@ export class HeroAIController {
 
     if (active) this.think(tm);
 
+    if (active && this.alive && this.stun <= 0 && this.brake <= 0) {
+      if (this.isCharging) {
+        this.chargeT -= dt;
+        if (this.chargeT <= 0) {
+          this.isCharging = false;
+          this.performAttack();
+        }
+      } else {
+        this.attackCd = Math.max(0, this.attackCd - dt);
+        if (this.attackCd <= 0 && this.targetDistance >= 40 && this.targetDistance <= 650) {
+          this.isCharging = true;
+          this.chargeT = 0.32;
+          this.view.brace();
+          const isMelee = this.targetDistance < 130;
+          this.fx.text(this.x, this.y - 70, isMelee ? "⚔️ STRIKE!" : "⚡ AIM!", "#f43f5e", 22);
+          this.fx.ring(this.x, this.y - 30, 0xf43f5e, 6);
+        }
+      }
+    }
+
     this.x += (sp + this.knockV) * dt;
 
     if (!this.onGround) {
@@ -234,6 +272,14 @@ export class HeroAIController {
   }
 
   // ---------- AI ----------
+  private performAttack() {
+    this.attackCd = this.rage ? (1.1 + Math.random() * 0.4) : (1.6 + Math.random() * 0.6);
+    this.view.brace();
+    const kind = this.character.silhouette;
+    const isMelee = this.targetDistance < 130;
+    this.onAttack?.(kind, this.x + 24, this.y - 36, isMelee);
+  }
+
   private jump() {
     this.vy = -this.floor.heroJump;
     this.onGround = false;

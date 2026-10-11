@@ -119,9 +119,19 @@ export class TrapManager {
       scene.tweens.add({ targets: sprite, alpha: 1, duration: 160 });
       this.fx.burst(x, y - 30, 6, { colors: [0xe2e8f0, 0x94a3b8], speed: 120, life: 0.35, gravity: 200, size: 0.3 });
     } else {
-      sprite = scene.add.image(x, GROUND_Y, stats.spiked ? "minionH" : "minion").setOrigin(0.5, 1).setDepth(8);
-      sprite.setScale(0.2);
-      scene.tweens.add({ targets: sprite, scale: 1, duration: 260, ease: "Back.easeOut" });
+      const isHd = scene.textures.exists("minion_imp");
+      const texKey = isHd ? "minion_imp" : (stats.spiked ? "minionH" : "minion");
+      sprite = scene.add.image(x, GROUND_Y, texKey).setOrigin(0.5, 1).setDepth(8);
+      if (isHd) {
+        sprite.setDisplaySize(50, 50);
+        if (stats.spiked) sprite.setTint(0xff9977);
+        const targetScale = sprite.scaleX;
+        sprite.setScale(targetScale * 0.2);
+        scene.tweens.add({ targets: sprite, scale: targetScale, duration: 260, ease: "Back.easeOut" });
+      } else {
+        sprite.setScale(0.2);
+        scene.tweens.add({ targets: sprite, scale: 1, duration: 260, ease: "Back.easeOut" });
+      }
       this.fx.burst(x, GROUND_Y - 10, 12, { colors: [0xff6b5e, 0xc0313f, 0xffb02e], speed: 190, life: 0.45, gravity: 300, size: 0.4 });
     }
 
@@ -298,6 +308,7 @@ export class TrapManager {
     const runeEruption = this.isRuneCell(t.cell) && !hero.onGround && hero.y >= GROUND_Y - 112;
     if (hero.x > left && hero.x < right && (hero.onGround || runeEruption)) {
       if (hero.takeDamage(t.stats.damage, "lava", hero.x, GROUND_Y - 30)) {
+        this.scene.cameras.main.shake(110, 0.006);
         hero.bounce(900);
         hero.applySlow(0.65, 1.0);
         if (runeEruption) {
@@ -339,6 +350,7 @@ export class TrapManager {
         tip - 56 < hero.y
       ) {
         if (hero.takeDamage(t.stats.damage, "spike", t.x, tip)) {
+          this.scene.cameras.main.shake(130, 0.008);
           hero.applyStun(0.7);
           this.shatter(t, hero.x, hero.y - 20);
           sfx.hit();
@@ -396,7 +408,7 @@ export class TrapManager {
         sfx.stomp();
         this.fx.burst(t.x, top, 10, { colors: [0xffffff, 0xffe066], speed: 200, life: 0.35, gravity: 300, size: 0.35 });
         this.fx.text(t.x, top - 20, "STOMP!", "#ffe14d", 22);
-        this.scene.tweens.add({ targets: t.sprite, scaleY: 0.55, duration: 80, yoyo: true });
+        this.scene.tweens.add({ targets: t.sprite, scaleY: t.sprite.scaleY * 0.55, duration: 80, yoyo: true });
         if (t.stats.spiked) {
           hero.takeDamage(Math.round(t.stats.damage * 1.4), "helm", t.x, top);
         }
@@ -409,6 +421,7 @@ export class TrapManager {
       }
       if (hero.canBeHit() && hero.y > top + 6) {
         if (hero.takeDamage(t.stats.damage, "contact", t.x, top)) {
+          this.scene.cameras.main.shake(90, 0.005);
           hero.applyStun(0.25);
           sfx.hit();
         }

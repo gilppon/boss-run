@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { AdKind } from "../game/poki";
+import type { AdKind } from "../game/portalAd";
 
 export interface AdState {
   kind: AdKind;
   done: (ok: boolean) => void;
 }
 
-/** Mock ad screen for testing the ad flow where the Poki SDK is not available */
+/** In-game break screen for environments where portal ad is preparing */
 export default function AdOverlay({ kind, onDone }: { kind: AdKind; onDone: (ok: boolean) => void }) {
   const total = kind === "rewarded" ? 3 : 2;
   const [left, setLeft] = useState(total);
@@ -29,7 +29,7 @@ export default function AdOverlay({ kind, onDone }: { kind: AdKind; onDone: (ok:
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-black/95 text-center">
       <div className="rounded-full border border-white/30 px-3 py-1 text-xs tracking-widest text-white/60">
-        AD · POKI SDK MOCK
+        SPONSORED · INTERMISSION
       </div>
       <div className="text-6xl">{kind === "rewarded" ? "🎁" : "📺"}</div>
       <div className="text-2xl font-black">
@@ -37,7 +37,7 @@ export default function AdOverlay({ kind, onDone }: { kind: AdKind; onDone: (ok:
       </div>
       <div className="text-5xl font-black tabular-nums text-yellow-300">{Math.max(left, 0)}</div>
       <p className="max-w-sm text-sm text-white/50">
-        In a real Poki environment (or with the ?poki param) a real Poki ad shows here.
+        Ad is playing. Your dungeon run will resume automatically.
       </p>
       {kind === "rewarded" && (
         <button

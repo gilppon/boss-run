@@ -1,79 +1,196 @@
-// Web Portal Ad Service (CrazyGames SDK v3 native + Poki fallback + Dev Intermission).
-// Mutes audio during ad breaks as required by platform submission standards.
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// Load only the SDK for the hosting portal. Local ad simulation is development-only.
 
 import { sfx } from "./sfx";
 
+interface PortalSettings {
+  muteAudio?: boolean;
+}
+
+interface CrazyGamesSdk {
+  init?: () => void | Promise<void>;
+  game?: {
+    loadingStart?: () => void;
+    loadingStop?: () => void;
+    gameplayStart?: () => void;
+    gameplayStop?: () => void;
+    settings?: PortalSettings;
+    addSettingsChangeListener?: (listener: (settings: PortalSettings) => void) => void;
+  };
+  ad?: {
+    requestAd?: (type: "rewarded", callbacks: {
+      adStarted?: () => void;
+      adFinished?: () => void;
+      adError?: () => void;
+    }) => void;
+  };
+}
+
+interface PokiSdk {
+  init?: () => void | Promise<void>;
+  gameLoadingFinished?: () => void;
+  gameplayStart?: () => void;
+  gameplayStop?: () => void;
+  measure?: (category: string, what: string, action: string) => void;
+  commercialBreak?: (onAdStarted?: () => void) => unknown;
+  rewardedBreak?: (onAdStarted?: () => void) => unknown;
+}
+
 declare global {
   interface Window {
-    CrazyGames?: any;
-    PokiSDK?: any;
+    CrazyGames?: { SDK?: CrazyGamesSdk };
+    PokiSDK?: PokiSdk;
   }
 }
 
-export type AdKind = "commercial" | "rewarded";
-type AdUI = (kind: AdKind, done: (ok: boolean) => void) => void;
+export type AdKind = "rewarded";
+type AdUI = (done: (ok: boolean) => void) => void;
+type StopReason = "pause" | "focus" | "end" | "navigation";
 
 const CRAZY_URL = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
 const POKI_URL = "https://game-cdn.poki.com/scripts/v2/poki-sdk.js";
+const AD_TIMEOUT_MS = 60_000;
 
 let adUI: AdUI | null = null;
 let provider: "crazy" | "poki" | null = null;
+let portalTarget: "crazy" | "poki" | null = null;
 let ready = false;
 let initPromise: Promise<void> | null = null;
+let loadingFinishedRequested = false;
 let loadingFinishedSent = false;
 let gameplayRequested = false;
 let gameplayActive = false;
+let pokiFirstGameplayInputSeen = false;
+let rewardedRequestActive = false;
 
 export function registerAdUI(fn: AdUI | null) {
   adUI = fn;
 }
 
+function matchesDomain(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+function portalForHost(host: string): "crazy" | "poki" | null {
+  if (matchesDomain(host, "crazygames.com")) return "crazy";
+  if (matchesDomain(host, "poki.com") || matchesDomain(host, "poki-gdn.com")) return "poki";
+  return null;
+}
+
 function detectPortal(): "crazy" | "poki" | null {
   try {
-    if (window.CrazyGames?.SDK || typeof (window as any).CrazyGames !== "undefined") return "crazy";
-    const host = window.location.hostname;
-    const q = window.location.search;
-    if (/(^|\.)crazygames/i.test(host) || q.includes("crazy")) return "crazy";
-    if (window.PokiSDK || /poki(-gdn)?\.com$/i.test(host) || q.includes("poki")) return "poki";
+    const currentHost = window.location.hostname.toLowerCase();
+    const referrerHost = document.referrer ? new URL(document.referrer).hostname.toLowerCase() : "";
+    const hostPortal = portalForHost(currentHost) ?? portalForHost(referrerHost);
+    if (hostPortal) return hostPortal;
+
+    // Query overrides are only for local development and cannot change a production host.
+    if (import.meta.env.DEV) {
+      const params = new URLSearchParams(window.location.search);
+      const override = (params.get("portal") ?? (params.has("crazy") ? "crazy" : params.has("poki") ? "poki" : "")).toLowerCase();
+      if (override === "crazy" || override === "poki") return override;
+    }
+
+    const hasCrazy = Boolean(window.CrazyGames?.SDK);
+    const hasPoki = typeof window.PokiSDK !== "undefined";
+    if (hasCrazy !== hasPoki) return hasCrazy ? "crazy" : "poki";
   } catch {
-    /* ignore */
+    // A game without a recognized portal still runs without ads.
   }
   return null;
 }
 
-function loadScript(src: string, timeout = 4000): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    const timer = window.setTimeout(() => reject(new Error("sdk timeout")), timeout);
-    s.src = src;
-    s.async = true;
-    s.onload = () => {
-      window.clearTimeout(timer);
-      resolve();
-    };
-    s.onerror = () => {
-      window.clearTimeout(timer);
-      reject(new Error("sdk load error"));
-    };
-    document.head.appendChild(s);
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        window.clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
   });
 }
 
-function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([p, new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), ms))]);
+function loadScript(src: string, timeout = 5000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      script.onload = null;
+      script.onerror = null;
+      if (error) reject(error);
+      else resolve();
+    };
+    const timer = window.setTimeout(() => {
+      script.remove();
+      finish(new Error("portal SDK load timeout"));
+    }, timeout);
+    script.src = src;
+    script.async = true;
+    script.onload = () => finish();
+    script.onerror = () => finish(new Error("portal SDK load failed"));
+    document.head.appendChild(script);
+  });
 }
 
-async function loadSdk(url: string): Promise<void> {
-  try {
-    await withTimeout(loadScript(url), 5000, undefined);
-  } catch {
-    /* ignore */
-  }
+async function loadSdk(url: string): Promise<boolean> {
+  return withTimeout(loadScript(url).then(() => true), 6000, false);
 }
 
-function crazySdk(): any | undefined {
+function crazySdk(): CrazyGamesSdk | undefined {
   return window.CrazyGames?.SDK;
+}
+
+function crazyAdsEnabled(): boolean {
+  return import.meta.env.VITE_CRAZYGAMES_LAUNCH === "full";
+}
+
+function requestCrazyRewardedAd(): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (watched: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      sfx.setAdMuted(false);
+      resolve(watched);
+    };
+    const timer = window.setTimeout(() => finish(false), AD_TIMEOUT_MS);
+    const ad = crazySdk()?.ad;
+    if (typeof ad?.requestAd !== "function") {
+      finish(false);
+      return;
+    }
+    try {
+      ad.requestAd("rewarded", {
+        adStarted: () => {
+          if (!settled) sfx.setAdMuted(true);
+        },
+        adFinished: () => finish(true),
+        adError: () => finish(false),
+      });
+    } catch {
+      finish(false);
+    }
+  });
+}
+
+async function requestDevRewardedAd(): Promise<boolean> {
+  const ui = import.meta.env.DEV && portalTarget === null ? adUI : null;
+  if (!ui) return false;
+  sfx.setAdMuted(true);
+  try {
+    return await new Promise<boolean>((resolve) => ui(resolve));
+  } finally {
+    sfx.setAdMuted(false);
+  }
 }
 
 export const PortalAd = {
@@ -81,45 +198,85 @@ export const PortalAd = {
     return provider !== null;
   },
 
+  get shouldStartDirectlyInGameplay() {
+    return provider === "crazy" && crazyAdsEnabled();
+  },
+
+  get canOfferRewardedAds() {
+    if (!ready || rewardedRequestActive) return false;
+    if (provider === "poki") return typeof window.PokiSDK?.rewardedBreak === "function";
+    if (provider === "crazy") return crazyAdsEnabled() && typeof crazySdk()?.ad?.requestAd === "function";
+    return import.meta.env.DEV && portalTarget === null && adUI !== null;
+  },
+
+  /** Send stable, game-specific events through Poki's built-in analytics only. */
+  measure(category: string, what: string, action: string) {
+    if (provider !== "poki" || typeof window.PokiSDK?.measure !== "function") return;
+    try {
+      window.PokiSDK.measure(category, what, action);
+    } catch {
+      // Portal analytics must never interrupt gameplay.
+    }
+  },
+
   init(): Promise<void> {
     if (initPromise) return initPromise;
     initPromise = (async () => {
+      const target = detectPortal();
+      portalTarget = target;
       try {
-        const portal = detectPortal() ?? "crazy"; // CrazyGames as default target
-        if (portal === "crazy") {
+        if (target === "crazy") {
           if (!crazySdk()) await loadSdk(CRAZY_URL);
-          await withTimeout(crazySdk()?.init() ?? Promise.resolve(), 5000, undefined);
-          if (crazySdk()) {
-            provider = "crazy";
-            try {
-              crazySdk().game.loadingStart();
-            } catch {
-              /* ignore */
+          const sdk = crazySdk();
+          const initialize = sdk?.init;
+          if (sdk && typeof initialize === "function") {
+            const initialized = await withTimeout(Promise.resolve().then(() => initialize.call(sdk)).then(() => true), 5000, false);
+            if (initialized) {
+              provider = "crazy";
+              sdk.game?.loadingStart?.();
+              const applySettings = (settings: { muteAudio?: boolean }) => sfx.setSdkMuted(settings.muteAudio === true);
+              try {
+                applySettings(sdk.game?.settings ?? {});
+                sdk.game?.addSettingsChangeListener?.(applySettings);
+              } catch {
+                // Settings integration must not make the game unavailable.
+              }
             }
           }
-        } else if (portal === "poki") {
-          await loadSdk(POKI_URL);
-          await withTimeout(window.PokiSDK?.init() ?? Promise.resolve(), 5000, undefined);
-          if (window.PokiSDK) provider = "poki";
+        } else if (target === "poki") {
+          if (!window.PokiSDK) await loadSdk(POKI_URL);
+          const sdk = window.PokiSDK;
+          const initialize = sdk?.init;
+          if (sdk && typeof initialize === "function") {
+            const initialized = await withTimeout(Promise.resolve().then(() => initialize.call(sdk)).then(() => true), 5000, false);
+            if (initialized) provider = "poki";
+          }
         }
       } catch {
         provider = null;
+      } finally {
+        ready = true;
+        if (loadingFinishedRequested) this.loadingFinished();
       }
-      ready = true;
     })();
-    return withTimeout(initPromise, 8000, undefined);
+    return initPromise;
   },
 
   loadingFinished() {
+    loadingFinishedRequested = true;
     if (!ready || loadingFinishedSent) return;
     if (provider === "crazy") {
       try {
-        crazySdk()?.game?.loadingStop();
+        crazySdk()?.game?.loadingStop?.();
       } catch {
-        /* ignore */
+        // Keep the game playable if a portal lifecycle callback fails.
       }
     } else if (provider === "poki") {
-      window.PokiSDK?.gameLoadingFinished?.();
+      try {
+        window.PokiSDK?.gameLoadingFinished?.();
+      } catch {
+        // Keep the game playable if a portal lifecycle callback fails.
+      }
     }
     loadingFinishedSent = true;
     if (gameplayRequested) this.gameplayStart();
@@ -128,129 +285,89 @@ export const PortalAd = {
   gameplayStart() {
     gameplayRequested = true;
     if (!ready || !loadingFinishedSent || gameplayActive || !provider) return;
+    // Poki counts the first gameplay start from the player's first input, not scene load.
+    if (provider === "poki" && !pokiFirstGameplayInputSeen) return;
     try {
-      if (provider === "crazy") crazySdk()?.game?.gameplayStart();
+      if (provider === "crazy") crazySdk()?.game?.gameplayStart?.();
       else if (provider === "poki") window.PokiSDK?.gameplayStart?.();
       gameplayActive = true;
     } catch {
-      /* ignore */
+      // Keep gameplay independent from portal analytics callbacks.
     }
   },
 
-  gameplayStop() {
+  notePlayerInput() {
+    pokiFirstGameplayInputSeen = true;
+    if (gameplayRequested && !gameplayActive) this.gameplayStart();
+  },
+
+  gameplayStop(reason: StopReason = "pause") {
     gameplayRequested = false;
+    // CrazyGames counts focus changes as still playing; only send stops for real breaks.
+    if (provider === "crazy" && reason === "focus") return;
     if (!ready || !loadingFinishedSent || !gameplayActive || !provider) return;
     try {
-      if (provider === "crazy") crazySdk()?.game?.gameplayStop();
+      if (provider === "crazy") crazySdk()?.game?.gameplayStop?.();
       else if (provider === "poki") window.PokiSDK?.gameplayStop?.();
     } catch {
-      /* ignore */
+      // Keep gameplay independent from portal analytics callbacks.
     } finally {
       gameplayActive = false;
     }
   },
 
-  /** Commercial ad (midgame break) */
+  /** Request a commercial break only at an explicit pause-resume boundary. */
   async commercialBreak(): Promise<void> {
-    if (provider === "crazy" && ready) {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          let settled = false;
-          const finish = (error?: unknown) => {
-            if (settled) return;
-            settled = true;
-            if (error !== undefined) reject(error);
-            else resolve();
-          };
-          const requestAd = crazySdk()?.ad?.requestAd;
-          if (typeof requestAd !== "function") {
-            finish(new Error("CrazyGames ad API unavailable"));
-            return;
-          }
-          requestAd.call(crazySdk()?.ad, "midgame", {
-            adStarted: () => sfx.setAdMuted(true),
-            adFinished: () => finish(),
-            adError: (error: unknown) => finish(error ?? new Error("CrazyGames ad error")),
-          });
-        });
-      } catch {
-        /* ad failures are gracefully ignored */
-      } finally {
-        sfx.setAdMuted(false);
-      }
-      return;
-    }
-
-    if (provider === "poki" && ready) {
-      try {
-        await window.PokiSDK.commercialBreak(() => sfx.setAdMuted(true));
-      } catch {
-        /* ignore */
-      } finally {
-        sfx.setAdMuted(false);
-      }
-      return;
-    }
-
-    // Offline / Local development fallback
-    if (!adUI) return;
-    sfx.setAdMuted(true);
-    try {
-      await new Promise<void>((resolve) => adUI!("commercial", () => resolve()));
-    } finally {
-      sfx.setAdMuted(false);
-    }
+    if (!ready) return;
+    // CrazyGames midgame ads belong at game-flow breaks, not pause/settings screens.
+    if (provider !== "poki") return;
+    const sdk = window.PokiSDK;
+    const commercialBreak = sdk?.commercialBreak;
+    if (!sdk || typeof commercialBreak !== "function") return;
+    let requestActive = true;
+    sfx.setAdMuted(false);
+    await withTimeout(
+      Promise.resolve().then(() => commercialBreak.call(sdk, () => {
+        if (requestActive) sfx.setAdMuted(true);
+      })).then(() => true),
+      AD_TIMEOUT_MS,
+      false,
+    );
+    requestActive = false;
+    sfx.setAdMuted(false);
   },
 
-  /** Rewarded ad. Returns true when watched to completion */
+  /** Reward only when the selected portal confirms a completed rewarded ad. */
   async rewardedBreak(): Promise<boolean> {
-    if (provider === "crazy" && ready) {
-      try {
-        return await new Promise<boolean>((resolve) => {
-          let settled = false;
-          const finish = (ok: boolean) => {
-            if (settled) return;
-            settled = true;
-            resolve(ok);
-          };
-          const requestAd = crazySdk()?.ad?.requestAd;
-          if (typeof requestAd !== "function") {
-            finish(false);
-            return;
-          }
-          requestAd.call(crazySdk()?.ad, "rewarded", {
-            adStarted: () => sfx.setAdMuted(true),
-            adFinished: () => finish(true),
-            adError: () => finish(false),
-          });
-        });
-      } catch {
-        return false;
-      } finally {
-        sfx.setAdMuted(false);
-      }
-    }
-
-    if (provider === "poki" && ready) {
-      try {
-        return Boolean(await window.PokiSDK.rewardedBreak({ onStart: () => sfx.setAdMuted(true) }));
-      } catch {
-        return false;
-      } finally {
-        sfx.setAdMuted(false);
-      }
-    }
-
-    // Local development fallback
-    if (!adUI) return true;
-    sfx.setAdMuted(true);
+    if (!this.canOfferRewardedAds) return false;
+    rewardedRequestActive = true;
     try {
-      return await new Promise<boolean>((resolve) => adUI!("rewarded", (ok) => resolve(ok)));
+      if (provider === "crazy") return await requestCrazyRewardedAd();
+      if (provider === "poki") {
+        const sdk = window.PokiSDK;
+        const rewardedBreak = sdk?.rewardedBreak;
+        if (!sdk || typeof rewardedBreak !== "function") return false;
+        let requestActive = true;
+        sfx.setAdMuted(false);
+        try {
+          return await withTimeout(
+            Promise.resolve().then(() => rewardedBreak.call(sdk, () => {
+              if (requestActive) sfx.setAdMuted(true);
+            })).then(Boolean),
+            AD_TIMEOUT_MS,
+            false,
+          );
+        } finally {
+          requestActive = false;
+          sfx.setAdMuted(false);
+        }
+      }
+      return await requestDevRewardedAd();
     } finally {
-      sfx.setAdMuted(false);
+      rewardedRequestActive = false;
     }
   },
 };
 
-// Aliased export for backward compatibility
+// Aliased export for backward compatibility.
 export const Poki = PortalAd;

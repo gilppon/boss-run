@@ -9,14 +9,17 @@ import type { RunConfig, RunResult } from "../game/types";
 interface Props {
   config: RunConfig;
   onEnd: (r: RunResult) => void;
+  onReady: () => void;
   className?: string;
 }
 
 /** Tie the Phaser game instance to the React lifecycle (recreated/destroyed per run) */
-export default function GameCanvas({ config, onEnd, className }: Props) {
+export default function GameCanvas({ config, onEnd, onReady, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const endRef = useRef(onEnd);
   endRef.current = onEnd;
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -24,7 +27,7 @@ export default function GameCanvas({ config, onEnd, className }: Props) {
     let cancelled = false;
     const off = bus.on("end", (r: RunResult) => endRef.current(r));
 
-    Promise.all([loadBackdrop(config.floorIndex), loadSprites()]).then(([img, sprites]) => {
+    Promise.all([loadBackdrop(config.floorIndex), loadSprites(config.floor.heroId, config.boss.def.name)]).then(([img, sprites]) => {
       if (cancelled || !ref.current) return;
       game = new Phaser.Game({
         type: Phaser.AUTO,
@@ -38,7 +41,10 @@ export default function GameCanvas({ config, onEnd, className }: Props) {
         banner: false,
       });
       game.scene.add("BossScene", BossScene, true, { config, backdrop: img, sprites });
-      if (!cancelled) setReady(true);
+      if (!cancelled) {
+        setReady(true);
+        readyRef.current();
+      }
     });
 
     return () => {

@@ -1,8 +1,9 @@
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 /** Chance to pause and brace when a ceiling spike begins to fall. */
-export function spikeReactionChance(baseChance: number, profileBonus: number): number {
-  return clamp(baseChance + profileBonus, 0, 0.85);
+export function spikeReactionChance(baseChance: number, profileBonus: number, repeatExposure = 0): number {
+  const learnedDodgeBonus = Math.min(Math.max(0, repeatExposure) * 0.18, 0.65);
+  return clamp(baseChance + profileBonus + learnedDodgeBonus, 0, 0.85);
 }
 
 /** Chance to choose a stomp against a single, unspiked minion. */

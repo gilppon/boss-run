@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { CELL, GROUND_Y, HANG_OFFSET, HERO_H, MINION_H, SPIKE_H, SPIKE_TRIGGER_DIST } from "./constants";
+import { CELL, GROUND_Y, HANG_OFFSET, HERO_H, MINION_H, SPIKE_FALL_ACCELERATION, SPIKE_H, SPIKE_TRIGGER_DIST } from "./constants";
 import type { Fx } from "./fx";
 import type { HeroAIController } from "./HeroAIController";
 import { sfx } from "./sfx";
@@ -340,7 +340,7 @@ export class TrapManager {
       return;
     }
     if (t.state === "falling") {
-      t.vy += 2600 * dt;
+      t.vy += SPIKE_FALL_ACCELERATION * dt;
       t.sprite.y += t.vy * dt;
       const tip = t.sprite.y;
       if (

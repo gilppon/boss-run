@@ -6,6 +6,8 @@ import PlayScreen from "./components/PlayScreen";
 import ResultModal, { type ResultInfo } from "./components/ResultModal";
 import Shop, { type ShopTab } from "./components/Shop";
 import { FLOORS } from "./game/config";
+import { loadBackdrop } from "./game/assets";
+import { bus } from "./game/bus";
 import { readBossChallenge } from "./game/share";
 import { PortalAd, registerAdUI } from "./game/portalAd";
 import {
@@ -34,6 +36,7 @@ export default function App() {
   const [shop, setShop] = useState<ShopTab | null>(null);
   const [help, setHelp] = useState(false);
   const [ad, setAd] = useState<AdState | null>(null);
+  const [adOffersAvailable, setAdOffersAvailable] = useState(false);
   const [challenge] = useState(readBossChallenge);
 
   const saveRef = useRef(save);
@@ -43,8 +46,12 @@ export default function App() {
   const resultRef = useRef<ResultInfo | null>(null);
   resultRef.current = result;
   const adRef = useRef<AdState | null>(null);
-  const sessionRuns = useRef(0);
-  const starting = useRef(false);
+  const reviveUsedThisSession = useRef(false);
+  const measuredRunKeyRef = useRef<number | null>(null);
+
+  const refreshAdAvailability = useCallback(() => {
+    setAdOffersAvailable(PortalAd.canOfferRewardedAds);
+  }, []);
 
   // Persist save & sync sound/fx settings
   useEffect(() => {
@@ -54,17 +61,6 @@ export default function App() {
     setFxQuality(save.lowFx);
   }, [save]);
 
-  // Poki SDK init + mock ad UI registration
-  useEffect(() => {
-    registerAdUI((kind, done) => {
-      const a: AdState = { kind, done };
-      adRef.current = a;
-      setAd(a);
-    });
-    PortalAd.init().then(() => PortalAd.loadingFinished());
-    return () => registerAdUI(null);
-  }, []);
-
   const closeAd = useCallback((ok: boolean) => {
     const a = adRef.current;
     adRef.current = null;
@@ -72,87 +68,168 @@ export default function App() {
     a?.done(ok);
   }, []);
 
-  const startRun = useCallback(async (floorIdx: number, opts?: { heroHpScale?: number; skipCommercialBreak?: boolean; mode?: RunMode; practiceOnly?: boolean }) => {
-    if (starting.current) return;
-    starting.current = true;
-    try {
-      const initialSave = saveRef.current;
-      const practiceOnly = opts?.practiceOnly ?? false;
-      const targetFloor = Math.min(Math.max(0, floorIdx), FLOORS.length - 1);
-      setMusicTheme(practiceOnly ? targetFloor : Math.min(targetFloor, initialSave.cleared));
+  const startRun = useCallback((
+    floorIdx: number,
+    opts?: { heroHpScale?: number; mode?: RunMode; practiceOnly?: boolean },
+    portalAutoStart = false,
+  ) => {
+    const initialSave = saveRef.current;
+    const practiceOnly = opts?.practiceOnly ?? false;
+    const targetFloor = Math.min(Math.max(0, floorIdx), FLOORS.length - 1);
+    setMusicTheme(practiceOnly ? targetFloor : Math.min(targetFloor, initialSave.cleared));
+    if (!portalAutoStart) {
       sfx.unlock();
       // Music needs the same first gesture as the AudioContext itself.
       startMusic();
-      setShop(null);
-      setHelp(false);
-      sessionRuns.current += 1;
-      // Signal every natural restart to PortalAd
-      if (sessionRuns.current > 1 && !opts?.skipCommercialBreak) {
-        await PortalAd.commercialBreak();
-      }
-      const s = saveRef.current;
-      const idx = practiceOnly ? targetFloor : Math.min(targetFloor, s.cleared);
-      setMusicTheme(idx);
-      setShowHint(!s.seenTutorial);
-      if (!practiceOnly) setSave((p) => ({ ...p, selectedFloor: idx, seenTutorial: true }));
-      setResult(null);
-      const mode = opts?.mode ?? "standard";
-      const cfg = buildRunConfig(s, idx, mode);
-      if (opts?.heroHpScale) cfg.heroHpScale = opts.heroHpScale;
-      cfg.practiceOnly = practiceOnly;
-      setRunCfg(cfg);
-      setRunKey((k) => k + 1);
-      setScreen("play");
-      PortalAd.gameplayStart();
-    } finally {
-      starting.current = false;
     }
+    setShop(null);
+    setHelp(false);
+    const s = saveRef.current;
+    const idx = practiceOnly ? targetFloor : Math.min(targetFloor, s.cleared);
+    setMusicTheme(idx);
+    const shouldShowTutorial = !s.seenTutorial && !s.tutorialSkipped;
+    setShowHint(shouldShowTutorial);
+    if (!practiceOnly) setSave((p) => ({ ...p, selectedFloor: idx }));
+    setResult(null);
+    const mode = opts?.mode ?? "standard";
+    if (!portalAutoStart) PortalAd.notePlayerInput();
+    const cfg = buildRunConfig(s, idx, mode);
+    if (opts?.heroHpScale) cfg.heroHpScale = opts.heroHpScale;
+    cfg.tutorialHold = shouldShowTutorial;
+    cfg.practiceOnly = practiceOnly;
+    setRunCfg(cfg);
+    setRunKey((k) => k + 1);
+    setScreen("play");
+  }, []);
+
+  // Initialize the selected portal alongside the first playable assets.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      registerAdUI((done) => {
+        const nextAd: AdState = { done };
+        adRef.current = nextAd;
+        setAd(nextAd);
+      });
+    }
+    let active = true;
+    let unlockAudioOnGesture: (() => void) | null = null;
+    void Promise.all([PortalAd.init(), loadBackdrop(0)]).then(() => {
+      if (!active) return;
+      refreshAdAvailability();
+      const currentSave = saveRef.current;
+      const firstRunOnPortal = PortalAd.isReal && !currentSave.seenTutorial && !currentSave.tutorialSkipped;
+      if (PortalAd.shouldStartDirectlyInGameplay || firstRunOnPortal) {
+        const floorIndex = challenge?.floorIndex ?? Math.min(currentSave.selectedFloor, currentSave.cleared, FLOORS.length - 1);
+        startRun(floorIndex, {
+          mode: challenge?.mode ?? "standard",
+          practiceOnly: challenge !== null && challenge.floorIndex > currentSave.cleared,
+        }, true);
+        const onFirstGesture = () => {
+          PortalAd.notePlayerInput();
+          sfx.unlock();
+          startMusic();
+          window.removeEventListener("pointerdown", onFirstGesture, true);
+          window.removeEventListener("keydown", onFirstGesture, true);
+          unlockAudioOnGesture = null;
+        };
+        unlockAudioOnGesture = onFirstGesture;
+        window.addEventListener("pointerdown", onFirstGesture, true);
+        window.addEventListener("keydown", onFirstGesture, true);
+      }
+    });
+    return () => {
+      active = false;
+      if (unlockAudioOnGesture) {
+        window.removeEventListener("pointerdown", unlockAudioOnGesture, true);
+        window.removeEventListener("keydown", unlockAudioOnGesture, true);
+      }
+      if (import.meta.env.DEV) registerAdUI(null);
+    };
+  }, [challenge, refreshAdAvailability, startRun]);
+
+  const handleGameplayReady = useCallback(() => {
+    PortalAd.loadingFinished();
+    PortalAd.gameplayStart();
+    const cfg = cfgRef.current;
+    if (!cfg || cfg.practiceOnly || measuredRunKeyRef.current === runKey) return;
+    measuredRunKeyRef.current = runKey;
+    const floor = String(cfg.floorIndex + 1);
+    PortalAd.measure("level", floor, "start");
+    if (cfg.tutorialHold) {
+      PortalAd.measure("tutorial", "first-trap", "start");
+      PortalAd.measure("hint", "first-trap", "visible");
+    }
+  }, [runKey]);
+
+  const handleTutorialStepComplete = useCallback(() => {
+    const currentSave = saveRef.current;
+    if (!cfgRef.current?.tutorialHold || currentSave.seenTutorial || currentSave.tutorialSkipped) return;
+    PortalAd.measure("hint", "first-trap", "interact");
+    PortalAd.measure("tutorial", "first-trap", "complete");
+    setSave((current) => current.seenTutorial || current.tutorialSkipped ? current : { ...current, seenTutorial: true });
+  }, []);
+
+  const handleTutorialSkip = useCallback(() => {
+    const currentSave = saveRef.current;
+    if (!cfgRef.current?.tutorialHold || currentSave.seenTutorial || currentSave.tutorialSkipped) return;
+    PortalAd.measure("tutorial", "first-trap", "skip");
+    setShowHint(false);
+    setSave((current) => current.seenTutorial || current.tutorialSkipped ? current : { ...current, tutorialSkipped: true });
+    bus.emit("tutorial-skip");
   }, []);
 
   const handleEnd = useCallback((r: RunResult) => {
-    PortalAd.gameplayStop();
+    PortalAd.gameplayStop("end");
     stopMusic();
     const cfg = cfgRef.current;
     if (!cfg) return;
     const s = saveRef.current;
     const idx = cfg.floorIndex;
+    if (!cfg.practiceOnly && measuredRunKeyRef.current === runKey) {
+      PortalAd.measure("level", String(idx + 1), r.won ? "complete" : "fail");
+      measuredRunKeyRef.current = null;
+    }
     const reward = cfg.practiceOnly
       ? { base: 0, bonus: 0, vaultPct: 0, challengeBonus: 0, total: 0 }
       : computeReward(s, idx, r, cfg.mode);
     const unlockedNext = !cfg.practiceOnly && r.won && s.cleared === idx && idx + 1 < FLOORS.length;
     if (!cfg.practiceOnly) setSave(applyRunEnd(s, idx, r, reward.total));
     setResult({ r, reward, floorIndex: idx, mode: cfg.mode, adClaimed: false, unlockedNext, adBusy: false, practiceOnly: cfg.practiceOnly });
-  }, []);
+  }, [runKey]);
 
   const watchAd = useCallback(async () => {
     const cur = resultRef.current;
-    if (!cur || cur.practiceOnly || cur.adClaimed || cur.adBusy) return;
-    setResult({ ...cur, adBusy: true });
+    if (!cur || cur.practiceOnly || !cur.r.won || cur.adClaimed || cur.adBusy) return;
+    setResult({ ...cur, adBusy: true, adUnavailable: false });
     const ok = await PortalAd.rewardedBreak();
+    refreshAdAvailability();
     if (ok) {
       setSave((p) => addGems(p, cur.reward.total));
       sfx.coin();
-      setResult((r) => (r ? { ...r, adClaimed: true, adBusy: false } : r));
+      setResult((r) => (r ? { ...r, adClaimed: true, adBusy: false, adUnavailable: false } : r));
     } else {
-      setResult((r) => (r ? { ...r, adBusy: false } : r));
+      setResult((r) => (r ? { ...r, adBusy: false, adUnavailable: true } : r));
     }
-  }, []);
+  }, [refreshAdAvailability]);
 
-  // Revive on defeat: watch an ad -> restart the same floor with the hero at 50% HP (once per result)
+  // Offer at most one revive per session and leave the normal retry path available.
   const revive = useCallback(async () => {
     const cur = resultRef.current;
-    if (!cur || cur.practiceOnly || cur.r.won || cur.adBusy) return;
-    setResult({ ...cur, adBusy: true });
+    if (!cur || cur.practiceOnly || cur.r.won || cur.adBusy || reviveUsedThisSession.current) return;
+    setResult({ ...cur, adBusy: true, adUnavailable: false });
     const ok = await PortalAd.rewardedBreak();
+    refreshAdAvailability();
     if (ok) {
+      reviveUsedThisSession.current = true;
       sfx.go();
-      startRun(cur.floorIndex, { heroHpScale: 0.5, skipCommercialBreak: true, mode: cur.mode });
+      startRun(cur.floorIndex, { heroHpScale: 0.5, mode: cur.mode });
     } else {
-      setResult((r) => (r ? { ...r, adBusy: false } : r));
+      setResult((r) => (r ? { ...r, adBusy: false, adUnavailable: true } : r));
     }
-  }, [startRun]);
+  }, [refreshAdAvailability, startRun]);
 
   const toMenu = useCallback(() => {
+    PortalAd.gameplayStop("navigation");
     stopMusic();
     setResult(null);
     setRunCfg(null);
@@ -161,7 +238,6 @@ export default function App() {
 
   const closeHelp = useCallback(() => {
     setHelp(false);
-    setSave((p) => (p.seenTutorial ? p : { ...p, seenTutorial: true }));
   }, []);
 
   const openShopFromResult = useCallback((tab: ShopTab = "trap") => {
@@ -223,7 +299,6 @@ export default function App() {
           onToggleFx={toggleFx}
           onReset={() => {
             setSave(resetSave());
-            sessionRuns.current = 0;
           }}
         />
       )}
@@ -256,6 +331,9 @@ export default function App() {
           onToggleSound={toggleSound}
           onSetAudioVolume={setAudioVolume}
           onEnd={handleEnd}
+          onGameplayReady={handleGameplayReady}
+          onTutorialStepComplete={handleTutorialStepComplete}
+          onTutorialSkip={handleTutorialSkip}
           onQuit={toMenu}
         />
       )}
@@ -263,6 +341,8 @@ export default function App() {
       {screen === "play" && result && (
         <ResultModal
           info={result}
+          canOfferRewardedAds={adOffersAvailable}
+          canOfferRevive={adOffersAvailable && !reviveUsedThisSession.current}
           onRetry={() => startRun(result.floorIndex, { mode: result.mode, practiceOnly: result.practiceOnly })}
           onNext={() => startRun(result.floorIndex + 1, { mode: result.mode })}
           onMenu={toMenu}
@@ -288,7 +368,7 @@ export default function App() {
         <HelpModal onClose={closeHelp} />
       )}
 
-      {ad && <AdOverlay kind={ad.kind} onDone={closeAd} />}
+      {import.meta.env.DEV && ad && <AdOverlay onDone={closeAd} />}
     </div>
   );
 }

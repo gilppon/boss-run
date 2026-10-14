@@ -1,103 +1,23 @@
-# 🚀 Poki 포털 등록 가이드 & 제출 패키지: Reverse Boss Runner (보스)
+# Poki 제출 안내
 
-- **생성/갱신 일시**: 2026-10-07
-- **대상 게임**: `보스` (`boss-reverse-runner`)
-- **담당**: 코다리 부장 (Kodari_Dev_Manager)
-- **비주얼 검증**: 인게임 실기 브라우저 테스트 및 Poki Event Checker 실사 검증 완료 (`OK` 판정)
+> Poki 최초 신청부터 CrazyGames 등록까지의 한국어 단계별 안내: [PORTAL_SUBMISSION_STEPS_KO.md](./PORTAL_SUBMISSION_STEPS_KO.md)
 
----
+## 준비된 에셋
 
-## 📦 1. 즉시 업로드 가능한 제출 에셋 (Poki 규격 100% 충족)
+- 썸네일: poki-thumbnail-v3-1254x1254.png (1254×1254, 문구 없음)
+- 애니메이션 미리보기 후보: poki-animated-preview-v3-1080x1080.mp4 (1080×1080, 50fps, 5초, 무음). 샘플 프레임에 실제 B1 전투가 있지만 최신 `BossScene.ts`보다 수정 시각이 약 7시간 이르므로 최신 ZIP의 영상으로 간주하지 말고 재캡처하세요.
+- 실제 게임플레이 스크린샷: **미제공**. Poki 제출 양식에는 실제 플레이 화면 3장이 필요합니다. 캡처 후 `submission-media/poki-gameplay/`에 `poki-gameplay-01`~`03`으로 저장하세요. PNG/JPEG/WebP, 장당 5 MiB 이하·25 MP 이하로 맞추고 커버 이미지를 대신 올리지 마세요.
 
-포키 개발자 대시보드(Poki for Developers)에 등록할 파일들입니다:
+첫 스테이지의 던전 수습생과 붉은 악마 보스를 반영했습니다. 영상의 시작 커버와 일부 전투 프레임은 확인했지만, 전체 클립이 최신 ZIP에서 나온 것인지와 새 보스 파동 회피를 담았는지는 아직 확인되지 않았습니다.
 
-| 항목 | 파일 위치 | 규격 및 용량 | 용도 |
-| :--- | :--- | :--- | :--- |
-| **게임 빌드 패키지** | [`e:\solarena\boss-reverse-runner.zip`](file:///e:/solarena/boss-reverse-runner.zip) | **1.03 MB (초경량 단일 번들)** | Poki "Upload Build"에 업로드할 `.zip` 파일 (`index.html` 최상단 위치) |
-| **정사각형 아이콘** | [`e:\solarena\poki-icon-boss-512x512.jpg`](file:///e:/solarena/poki-icon-boss-512x512.jpg) | 512 × 512 (1:1 비율, 103 KB) | 포털 게임 목록 및 모바일 런처 표시 (불꽃 악마 보스 `Lil' Demon`) |
-| **와이드 커버 썸네일** | [`e:\solarena\poki-cover-boss-1280x720.jpg`](file:///e:/solarena/poki-cover-boss-1280x720.jpg) | 1280 × 720 (16:9 비율, 264 KB) | Poki 메인 화면 배너 (보스 포효 vs 영웅 침입 액션 씬) |
+## 제출 전
 
-> 보스 프로젝트 폴더 내 보관 위치:
-> - 아이콘: [`e:\solarena\보스\poki-icon-512x512.jpg`](file:///e:/solarena/보스/poki-icon-512x512.jpg)
-> - 커버: [`e:\solarena\보스\poki-cover-1280x720.jpg`](file:///e:/solarena/보스/poki-cover-1280x720.jpg)
-> - 패키지: [`e:\solarena\보스\boss-reverse-runner.zip`](file:///e:/solarena/보스/boss-reverse-runner.zip)
+1. 최신 게임 ZIP을 Poki 테스트 빌드에 올리고 Event Checker를 실행합니다.
+2. Inspector에서 SDK, 시작·일시정지, 광고 성공·실패·보상 경로를 확인합니다.
+3. 실제 데스크톱·모바일에서 화면 배치, 조작, 오디오를 확인합니다.
+4. 최신 ZIP을 기준으로 포털 영상과 게임플레이 스크린샷 3장을 준비합니다.
+5. 포털에서 썸네일·영상·스크린샷을 등록하고 잘림과 재생 상태를 확인합니다.
 
----
+로컬 아티팩트는 `rtk python scripts/verify_portal_submission.py`로 검사할 수 있습니다. 검증기는 스크린샷의 파일 크기와 이미지 메타데이터를 확인하지만, 실제 게임 장면이나 포털 이벤트 수신은 사람이 확인해야 합니다. 포털 업로드 및 Inspector/Event Checker 검증은 아직 수행하지 않았습니다.
 
-## 📝 2. Poki 포털 입력용 영문 메타데이터 (복사하여 붙여넣기)
-
-### [Game Title]
-```text
-Reverse Boss Runner
-```
-*(부제목: `Reverse Boss Runner: Dungeon Defense`)*
-
----
-
-### [Short Description / Tagline] (한 줄 요약)
-```text
-Play as the ultimate dungeon demon boss! Deploy deadly magma traps, iron spikes, and loyal minions to crush incoming hero invaders!
-```
-
----
-
-### [Game Description] (상세 소개글)
-```text
-Heroes are invading your subterranean domain to slay the boss and claim your treasure—but this time, YOU are the Boss!
-
-Reverse Boss Runner flips classic dungeon crawler roles on their head. Take control of a fearsome yet hilarious demon boss, build your defense, and defend your dungeon gates against waves of stubborn adventurer knights, agile scouts, and holy duelists!
-
-Strategically time your trap placements:
-- Open fiery lava chasms right under charging adventurers
-- Pop razor-sharp spikes when heroes attempt daring leap maneuvers
-- Summon vicious demon minions to block their path
-- Unleash the mighty ROAR to blast invaders backward and buy crucial time!
-
-Conquer 5 challenging dungeon tiers—from the rookie-filled Castle Hall to the perilous Sketchy Sewers, fiery Ember Gallery, eerie Abyssal Halls, and the glorious King's Cathedral. Collect gems, evolve your demon into four distinct boss forms with glowing wings and crowns, upgrade your dark mines, and prove no hero can breach your gates!
-
-Key Features:
-- Unique "Reverse Boss" Gameplay: Become the dungeon ruler and eliminate incoming AI heroes!
-- Dynamic Trap & Minion Tactics: Real-time placement of magma cracks, spike pits, and devil minions.
-- 5 Distinct Gothic Dungeon Floors: Handcrafted atmospheric backgrounds from gothic fortresses to celestial abyssal cathedrals.
-- Demon Evolution System: Upgrade stats, unlock wings, royal crowns, and blazing aura forms!
-- Instant Play & Low Lag: Ultra-lightweight (~1MB) bundle with blazing fast 60fps performance and full mobile touch support.
-```
-
----
-
-### [Controls Guide] (조작법)
-```text
-Desktop Controls:
-- 1 / 2 / 3 Keys: Select Traps (1: Lava Fissure, 2: Iron Spikes, 3: Demon Minion)
-- Left Mouse Click (or Drag): Place selected trap onto the runway track
-- SPACEBAR: Trigger Mighty Boss ROAR!
-- P / ESC: Pause Game / Open Settings
-
-Mobile / Touch Controls:
-- Tap trap cards at the bottom bar, then tap on the track to deploy.
-- Tap the giant orange ROAR button to unleash demon roar.
-```
-
----
-
-### [Categories & Tags] (카테고리)
-- **Primary Category**: `Strategy Games`, `Arcade Games`
-- **Secondary Tags**: `Action Games`, `Defense Games`, `Monster Games`, `Funny Games`, `Platform Games`, `Boss Fight`
-- **Supported Devices**: `Desktop`, `Mobile`, `Tablet`
-
----
-
-## 🛠️ 3. Poki 개발자 포털 제출 5단계 절차
-
-1. **[Poki for Developers](https://developers.poki.com/) 접속 및 로그인**
-   - 포키 개발자 사이트에 접속하여 개발자 계정으로 로그인합니다.
-2. **"Submit a Game" 클릭**
-   - 개발자 대시보드 우측 상단의 게임 제출 버튼을 누릅니다.
-3. **게임 기본 정보 입력**
-   - 위의 **2번 섹션 메타데이터** (Title, Tagline, Description, Controls)를 그대로 복사하여 붙여넣습니다.
-4. **빌드 및 에셋 업로드**
-   - **Game File (.zip)**: [`e:\solarena\boss-reverse-runner.zip`](file:///e:/solarena/boss-reverse-runner.zip) 파일 업로드
-   - **Game Icon**: [`e:\solarena\poki-icon-boss-512x512.jpg`](file:///e:/solarena/poki-icon-boss-512x512.jpg) 업로드
-   - **Cover / Thumbnail**: [`e:\solarena\poki-cover-boss-1280x720.jpg`](file:///e:/solarena/poki-cover-boss-1280x720.jpg) 업로드
-5. **[Submit for Review] 최종 심사 요청**
-   - 게임 인스펙터 미리보기 확인 후 "Submit for Review"를 누르면 제출 완료!
+공식 안내: [제출 양식](https://developers.poki.com/guide/share), [게임 썸네일](https://developers.poki.com/guide/game-thumbnail), [게임 페이지와 애니메이션 썸네일](https://developers.poki.com/guide/your-game-page), [품질 및 QA 요구사항](https://developers.poki.com/guide/requirements-quality).

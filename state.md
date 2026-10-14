@@ -1,9 +1,27 @@
 # 캐릭터 고도화 진행 상태
 
+## CrazyGames 제출 인계 갱신 — 2026-10-14
+
+- 다른 게임 폴더에서도 이어서 준비하도록 `CRAZYGAMES_SUBMISSION_HANDOFF.md`에 포털 단계, 현재 제출 상태, 공식 에셋 규격, 업로드 오류 경험을 기록했다.
+- CrazyGames 업로드 UI는 ZIP 아카이브를 지원하지 않는다고 표시했다. `crazygames-upload/`의 최신 빌드 파일을 직접 올리고 QA 수동 항목은 실제 확인 후에만 완료로 기록한다.
+- 세로 프리뷰 v3(1080×1620)를 추가했다. 가로 프리뷰는 v2라 최신 가로 커버와 첫 화면 일치 여부 확인 또는 재생성이 남아 있다.
+- 포털 업로드·QA·최종 제출은 미확인이고, 과거 흰 화면/React #418의 원인도 미확정이다.
+
+## 2026-10-14 스파이크 단독 공략 개선
+
+- 실플레이 제보: 낙하 스파이크 반복으로 약 1분 만에 마지막 스테이지에 도달했다. 대응 계획은 `SPIKE_BALANCE_PLAN.md`에 기록했다.
+- 영웅의 스파이크 반응을 즉시 점프에서 낙하 완료까지 잠시 대기한 뒤 기존 착지 장애물 점프 계획을 쓰는 방식으로 변경했다. 공중·경직·다른 행동 중에는 자동 회피가 보장되지 않는다.
+- 스파이크 설치 최소 거리를 영웅 앞 90px로 늘리고, 연속 설치에 2.4초 재사용 시간을 적용했다. 선택 카드와 설치 미리보기에 남은 시간을 표시한다.
+- 타입 검사와 프로덕션 빌드 통과. 일반 샌드박스 빌드는 `index.html` 접근 권한 오류로 두 번 실패했고, 승인된 권한 밖 빌드는 통과했다. 기존 큰 JS 청크 경고는 남아 있다.
+- 로컬 브라우저에서 스파이크 첫 설치 후 마나 100→84, 즉시 두 번째 설치 후 마나 84 유지 및 재사용 시간 표시를 확인했다. 전체 5층을 스파이크만으로 다시 플레이해 클리어 시간을 측정하지는 않았다.
+- `crazygames-upload/` 30개 파일의 SHA-256이 `dist/`와 각각 일치한다. 새 제출 ZIP 두 개는 동일한 SHA-256 `6f4b47f0a6b7aba67aaffd10a8bc789fd8a982c22f765b7096ddd5b6aced5728`이며 정적 제출 검사 통과. 검사기의 오래된 스크롤 방지 코드 문자열 조건을 현재 구현에 맞게 수정했다.
+- Netlify 공개 배포 `6acf1b91f1148dade16a36cd`가 2026-10-14 15:05 KST에 Published로 확인됐다. 배포 파일 브라우저의 JS·CSS 이름이 현재 빌드의 `index-BI2-j9w1.js`, `index-DFezROZW.css`와 일치하고 공개 주소에서 게임 메뉴가 열린다.
+- CrazyGames 포털에 이미 올린 파일은 별도 재업로드가 필요하다. Poki 실제 게임플레이 스크린샷, 최신 영상 재캡처, 포털 QA, 모바일 성능 검사는 여전히 대기 중이다.
+
 ## 상태
 
-- 전체 진행: **구현 완료**
-- 완료 일자: 2026-10-03
+- 전체 진행: **캐릭터·전투·첫 참여 흐름과 Poki 플레이어 반응 계측을 로컬에서 구현·검증; 최신 제출 ZIP 갱신 완료. 선택된 영상 3종은 최신 `BossScene.ts`보다 약 7시간 먼저 수정되어 재캡처가 필요하며, Poki 스크린샷 3장·포털 QA도 대기**
+- 최신 상태 갱신: 2026-10-14
 - 게임 구현 시작: 예
 - 범위: 5명 층별 영웅, 기존 보스 폼, 함정 미니언, 관련 UI
 
@@ -519,3 +537,159 @@
 ## Poki rewarded-action compliance — 2026-10-06
 
 - Changed the revive ad button from green/teal to fuchsia/violet so rewarded actions do not use green; retained the 🎬 marker. Build passed (1,611.76 kB / gzip 449.47 kB), `git diff --check` passed.
+
+## Poki / CrazyGames submission readiness — 2026-10-12
+
+- **현재 판정: 필수 로컬 제출물 준비 완료, 포털 QA 대기.** 실제 업로드 검사와 Poki Event Checker/CrazyGames QA를 실행하지 않아 승인이나 통과를 주장하지 않는다.
+- `index.html`의 전역 CrazyGames SDK 스크립트를 제거했다. `portalAd.ts`는 호스트/리퍼러 우선으로 포털 하나만 선택하고, 모르는 운영 호스트에는 광고를 제공하지 않는다. 운영에서 SDK가 없거나 광고 실패 시 보상은 지급되지 않는다.
+- 개발 모의 보상은 DEV 전용이다. CrazyGames Basic Launch에서는 광고/CTA를 끄고, Full Launch에서 `VITE_CRAZYGAMES_LAUNCH=full`을 설정해야 보상 광고를 켠다.
+- loading-finished는 SDK와 초기 에셋 준비 후, gameplay-start는 Phaser 씬 준비 후 발생한다. Poki 상업 광고는 사용자가 pause에서 재개할 때만 요청한다. CrazyGames는 pause에서 gameplay-stop/start를 보내되 pause/settings 중 광고를 띄우지 않고, 단순 focus 이탈에는 gameplay-stop을 보내지 않는다.
+- 결과 화면은 표준 진행과 rewarded CTA를 같은 크기·글꼴·색으로 표시한다. 광고 중복 요청만 진행 중 잠금으로 막고, 광고 간격은 포털 SDK가 관리한다. 부활은 세션당 한 번이며 no-fill이면 보상을 주지 않는다.
+- 새 정적 Poki 썸네일 `poki-thumbnail-v2-1254x1254.png`(1,254×1,254)와 실제 플레이 애니메이션 `poki-animated-preview-1080x1080.mp4`(1,080×1,080, 50fps, 5초, 무음, 2,702,955 bytes)를 준비했다. 애니메이션은 정적 썸네일에서 시작하며 전체 16:9 플레이 화면을 정사각 캔버스에 맞춰 HUD 잘림을 제거했다. 기존 512px 아이콘은 정적 썸네일로 부적합하다. 일반 이름 `boss-reverse-runner.zip`도 최신 제출 ZIP과 동일하게 갱신했다.
+- 검증: `rtk npm run typecheck`, 포털 분기/보상/CTA 집중 정적 가드, `rtk git diff --check` 통과.
+- 빌드: 기본 샌드박스에서 Vite/Rollup `realpath EPERM`이 발생했으나, 작업공간 접근 권한을 높여 `rtk npm run build`를 실행해 통과했다(Vite 7.3.2, 61 modules, `dist/index.html` 1,626.01 kB / gzip 452.51 kB). 최신 `boss-reverse-runner-submission-2026-10-12.zip`은 19개 파일, 2,804,155 bytes expanded / 1,635,378 bytes ZIP이다. 모든 ZIP 파일 SHA-256이 `dist/`와 일치하고, 루트 엔트리와 스프라이트 포함을 확인했다.
+- 추가 제출 에셋 (2026-10-12): CrazyGames 커버 `crazygames-cover-landscape-1920x1080.png`, `crazygames-cover-portrait-800x1200.png`, `crazygames-cover-square-800x800.png`에 원본 아트를 보존한 채 `REVERSE BOSS RUNNER` 제목을 추가했다. CrazyGames 무음 플레이 영상은 landscape 1920×1080/30fps/16.80초/22,258,913 bytes, portrait 720×1080/30fps/16.77초/4,867,688 bytes다. 두 영상은 대응 커버로 시작한다. 세로 영상은 전체 가로 게임 화면을 2:3 캔버스에 배치해 HUD를 자르지 않는다. Poki MP4는 1080×1080/50fps/5초/2,702,955 bytes이며, 정적 썸네일 뒤에 전체 게임 화면을 넣은 세 장면이 이어진다. `ffprobe`와 포털 제출 검증 스크립트로 영상 메타데이터·무음·이미지 크기를 확인하고, 축소 타일과 표본 프레임을 육안 확인했다. Poki/CrazyGames 실제 포털 QA는 남아 있다.
+- CrazyGames portrait preview는 landscape 플레이를 2:3으로 따라 자른 제출 영상이다. 실제 세로 viewport는 “Rotate to landscape” 오버레이를 표시하므로, 포털 QA에서 영상 표현 및 지원 방향을 확인해야 한다.
+- 추가 점검: CrazyGames Full Launch 조건에서 에셋과 SDK 준비 뒤 저장된 해금 층으로 바로 시작하도록 구현했다. 현재 ZIP은 Full 플래그가 없는 Basic Launch/Poki 공용 후보다. 번들의 파일 수·총 용량은 CrazyGames 한도 내지만 실제 포털 QA, SDK/광고 콜백, mobile QA와 초기 로딩 측정은 남아 있다.
+- Poki 제한 정적 점검: 외부 주소는 공식 포털 SDK 로드에만 쓰이고, 저장소가 차단돼도 기본 저장값으로 진행하도록 모든 `localStorage` 접근을 예외 처리했다. 친구 도전은 브라우저 공유/복사를 사용하며 외부 페이지 이동 링크는 찾지 못했다. 실제 Poki Inspector의 네트워크/시크릿 검사는 미실행이다.
+- 후속: 현재 ZIP 및 제출 영상/커버를 각각 Poki와 CrazyGames Developer Portal에 등록해 Inspector/Event Checker와 Quality Assurance Tool 결과를 확인한다. Full Launch 선정 시 별도 Full 플래그 ZIP을 만들고 즉시 플레이 진입을 실포털에서 검증한다.
+- 최신 상세 리포트: `PORTAL_SUBMISSION_READINESS.md`.
+
+## 포털 SDK 수정 및 최종 로컬 검증 — 2026-10-12
+
+- Poki `rewardedBreak`에 공식 콜백 함수 형식을 사용하고, 광고 간격을 내부 3분 타이머가 아닌 Poki SDK가 관리하도록 수정했다. 요청 중복만 진행 중 잠금으로 막는다.
+- CrazyGames `muteAudio` 초기 설정과 변경 리스너를 연결해 포털 음소거가 게임 내 오디오 토글보다 우선하도록 했다.
+- 플레이 중 Space/위·아래 화살표와 게임 화면의 휠 기본 스크롤을 차단해 포털 페이지 점프를 방지한다. 버튼과 오디오 컨트롤 입력은 유지한다.
+- 검증: `rtk npm run typecheck`, 권한이 필요한 프로덕션 `rtk npm run build`(Vite 7.3.2, 61 modules, 1,626.01 kB / gzip 452.51 kB), `rtk git diff --check` 통과.
+- 프로덕션 `dist/index.html`에서 개발용 `AD · POKI SDK MOCK` 문구가 없고, 소스의 모의 광고 등록·실행 경로는 DEV 조건으로 제한됐음을 확인했다.
+- Poki/CrazyGames Basic Launch 공용 ZIP은 19개 파일, 2,804,155 bytes expanded / 1,635,378 bytes ZIP이다. ZIP 내부 파일 전부 `dist/`와 SHA-256 일치, 루트 `index.html` 확인.
+- 실수로 오래된 generic 패키지를 고르지 않도록 `boss-reverse-runner.zip`을 최신 dated ZIP과 동일하게 갱신했다. 두 압축 파일의 SHA-256은 `3d24e96172955ca67b9069a1497975f3c9ca20a2ac27636c963d20f92c5335f4`다.
+- `scripts/verify_portal_submission.py`를 추가해 SDK/dev-mock 가드, 영어 UI, 외부 이동/사용자 정의 전체화면 부재, ZIP/`dist/` 전수 동일성, 커버·영상 규격 및 크기 제한을 재검증하도록 했다. 현재 산출물에서 통과했다.
+- 최종 SDK 수정 뒤 브라우저 상호작용 검증은 못 했다. Windows Bash 권한 오류, npm registry DNS 차단, 도구 간 preview 포트 격리가 이유다. 최종 typecheck/build와 재실행 artifact 검증은 통과했으며, 포털 QA는 계속 남아 있다.
+- Poki Inspector/Event Checker, CrazyGames Developer Portal QA, 실제 SDK 광고·no-fill, 모바일 실기기 검증은 여전히 남아 있어 실제 제출 승인은 미확정이다.
+
+## 브라우저 QA 추가 확인 — 2026-10-13
+
+- 프로덕션 `dist/index.html`의 데스크톱·모바일 화면 QA를 시도했다. Playwright CLI/패키지는 프로젝트 및 전역 설치에 없었고, 자동화 세션에서도 사용할 수 없었다.
+- Vite preview는 실행 메시지를 출력했지만 `127.0.0.1:4173` 연결이 셸에서 `Bad access`로 거부됐다. Codex 브라우저에서도 localhost 접속이 실패했다.
+- Codex 브라우저 정책이 `file://` 접근을 거부했으므로 다른 브라우저나 우회 방식으로 시도하지 않았다. preview 프로세스는 종료했다.
+- 결과: 이 시도에서 앱 결함은 확인하지 못했으며, 화면 렌더링도 검증하지 못했다. 기존 typecheck/build/정적 제출 검증 결과는 유효하지만, 브라우저 및 포털 QA는 미완료다.
+- 이어서 완료하려면 데스크톱 1280×720과 모바일 390×844에서 사용자가 직접 캡처한 게임 화면을 확인해야 한다. Poki/CrazyGames 실제 포털 QA도 별도 실행이 필요하다.
+
+
+## 2026-10-13 등록용 아트 고도화
+
+- 고해상도 썸네일/커버 4종 제작: Poki 1254×1254, CrazyGames 가로 1920×1080, 세로 800×1200, 정사각 800×800.
+- 무음 H.264 미리보기 3종 제작: Poki 1080×1080/50fps/5초, CrazyGames 가로 1920×1080/30fps/16.8초, 세로 720×1080/30fps/16.77초.
+- 첫 스테이지 수습생·붉은 악마·성곽 테마로 아트를 통일하고, 영상 주변 배경을 새 키아트 팔레트로 조정함. 원본 에셋은 보존함.
+- 샘플 프레임과 로컬 제출 아티팩트 검사 통과. 포털 등록, 플랫폼 QA, 실제 모바일 렌더링은 미완료.
+
+
+## 2026-10-13 첫 진입 흐름 및 제출본 갱신
+
+- Poki/SDK가 초기화된 포털의 신규 이용자는 메뉴 대신 첫 스테이지로 바로 시작. CrazyGames Full Launch는 항상 직접 게임 진입을 유지.
+- 첫 조작은 초록 배치 구역에 선택한 함정 하나를 놓도록 시각 안내. 실제 배치 후에만 튜토리얼 완료를 저장.
+- 세로 화면에서 가로로 회전하면 게임이 준비된 뒤 Resume 버튼 없이 자동 재개.
+- rtk npm run typecheck, 권한 검토 후 rtk npm run build, rtk proxy python scripts/verify_portal_submission.py, rtk git diff --check 통과.
+- 최신 제출본 19개 파일: boss-reverse-runner-submission-2026-10-13.zip 및 boss-reverse-runner.zip. SHA-256 ff94a792e150548a7b870561a0d39461b8cce90f498c6664c72fb425487fd6fa. 2026-10-12 날짜별 ZIP은 보존.
+- 포털 QA와 실제 모바일 렌더링은 미완료. 모바일 세로 전용 플레이도 이번 변경에는 포함하지 않음.
+
+
+## 2026-10-13 보스 직접 회피 조작
+
+- 낮은 원거리 탄과 근접 참격은 점프, 높은 원거리 공격은 웅크리기로 피하도록 공격 경고·투사체 궤적·충돌 판정을 연결했다. 공격별 회피 매핑은 `src/game/heroAttack.ts` 한 곳에서 관리한다.
+- 데스크톱은 `W`/`↑` 점프, `S`/`↓` 웅크리기. 가로형 모바일 HUD에 점프·웅크리기 터치 버튼과 재사용 대기시간을 추가했다. 점프는 약 128px 높이로 약 0.83초, 웅크리기는 0.8초 지속한다.
+- 보스 외형 크기에 맞춰 수직 피격 범위를 조정한다. 높은 투사체는 지면 미니언 방패를 통과하고, 낮은 투사체는 미니언과 부딪힌다.
+- 검증: `rtk npm run typecheck`, Vite 프로덕션 빌드(62 modules, `dist/index.html` 1,633,980 bytes), 4종 보스 크기·투사체 반경별 회피 기하 계산, 제출 검증 스크립트(19 ZIP files), `rtk git diff --check` 통과. 별도 lint/test 명령은 package scripts에 없다.
+- `boss-reverse-runner-submission-2026-10-13.zip` 및 `boss-reverse-runner.zip`을 최신 빌드로 갱신했다. SHA-256: `05bfbf52bfbaf4018c8a59cd1410a146f609961a7ed942dbdaa6bc860755e9ee`.
+- 실제 브라우저/모바일 플레이 화면과 Poki/CrazyGames 포털 QA는 이번 검증에 포함되지 않았다. 따라서 렌더링과 실제 제출 심사는 미확정이다.
+
+
+## 2026-10-13 캐릭터 동작 프레임 연결
+
+- 영웅 5종과 보스 4종에 4×3, 12포즈 WebP 시트를 각각 연결했다. 대기·달리기·점프·낙하·착지·피격·준비·공격·웅크리기·포효·함정 설치처럼 게임 상태에 맞는 포즈를 표시한다.
+- 영웅 공격 예고는 준비 자세 뒤 공격 포즈로 이어지고, 보스의 점프·웅크리기 및 함정 설치 조작도 해당 포즈에 연결했다. 프레임 이미지 변경은 포즈가 실제로 바뀔 때만 실행하며 기존 충돌 판정과 게임 수치는 건드리지 않았다.
+- 새 시트 9개는 총 6,038,186 bytes다. 전체 `dist/`는 압축 해제 8,853,982 bytes, 엔트리 gzip은 빌드 출력 기준 약 455.10 kB다. 최신 ZIP은 `boss-reverse-runner-submission-2026-10-13-animation-mobile.zip` 및 별칭 `boss-reverse-runner.zip`이다. 28개 파일, 8,853,982 expanded bytes, 7,671,695 ZIP bytes, SHA-256 `12546d328a593251b330e3aa0f06594cf4baa2be5c03c88bc058bb8082339cd8`.
+- `rtk npm run typecheck`, 프로덕션 빌드(62 modules), 포털 제출 검증 스크립트, `rtk git diff --check` 통과. 제출 검사기는 전체 패키지가 CrazyGames 모바일 홈 20MB 초기 다운로드 상한보다 작은지도 확인한다.
+- 승인된 loopback 프리뷰로 실제 화면을 검증했다. 데스크톱에서 영웅·보스, `LOW SHOT! JUMP!`/`HERO WILL JUMP` 예고와 회피 버튼을 확인했다. 390×844 메뉴의 가로 넘침을 고쳐 카드 폭 348px·페이지 가로 스크롤 390px을 확인했고, 세로 회전 안내 및 844×390 전환 후 자동 재개도 확인했다.
+- 기존 Poki/CrazyGames MP4 미리보기는 이번 애니메이션 빌드를 담지 않아 다시 녹화해야 한다. 실제 포털 QA도 미완료다.
+- 브라우저 진단 로그에서 console error/warning은 0건이었다. 이 브라우저 평가 API는 `requestAnimationFrame`/`performance`를 노출하지 않아 정량 FPS 표본은 얻지 못했다. 크기 예산과 프레임 변경 캐시는 확인했으며 실제 저사양 기기 프레임 측정은 남아 있다.
+
+## 보스 파동 공격과 영웅 회피 (2026-10-13)
+
+- 기존 ROAR를 2단 파동으로 확장했다. 낮은 파동은 점프, 높은 파동은 점프 착지 후 웅크리기로 피한다. 경고 텍스트·색상 레인·CROUCH 피드백을 추가하고, 실패 시에만 영웅이 16 피해를 받는다. 함정 피해·콤보 통계에는 보스 공격을 포함하지 않는다.
+- 최신 production 프리뷰에서 ROAR 입력 직후 `GROUND WAVE · JUMP!`, `SKY WAVE!`, `LOW SHOT · JUMP!` 안내와 두 레인의 투사체를 확인했다. 화면 확인 시 영웅 HP는 90/90이었다. 콘솔 오류·경고 조회 결과는 0건이다. 고공 파동 직후의 웅크리기 포즈는 별도 캡처로 확인하지 못했다.
+- `rtk npm run typecheck`, production build(62 modules), 포털 제출 verifier, `rtk git diff --check` 통과. 최종 ZIP `boss-reverse-runner-submission-2026-10-13-boss-wave.zip` 및 `boss-reverse-runner.zip`: 28 files, 8,857,396 expanded bytes, 7,671,954 ZIP bytes, SHA-256 `94f759be4a5f7b7c6b2d9ddd4e533749f55818dd41ec5209faa305b1ae06a9e7`.
+- 이 번들의 Poki/CrazyGames MP4는 새 파동/웅크리기 피드백이 녹화되기 전 버전이라 다시 촬영해야 한다. 포털 검사와 실기기 FPS 측정도 남아 있다.
+
+## 첫 참여·재도전 감정 개선 (2026-10-13)
+
+- 계획서 `EMOTIONAL_ENGAGEMENT_PLAN.md`에 호기심 → 첫 행동 → 영웅과의 경쟁 → 결과를 통한 재도전 흐름을 정리하고 구현했다.
+- 메뉴 역할 설명, 고정 Deploy 버튼, 첫 함정 안내·배치 성공 문구, 통계에 따른 승패 결과 문구, 영웅 회피 피드백을 다듬었다. 충돌 규칙과 게임 밸런스는 변경하지 않았다.
+- production 브라우저에서 Deploy 버튼을 390×844 (top 768px), 844×390 (top 302px), 1280×720 (top 632px)에서 확인했고 가로 페이지 넘침은 없었다. 패배 결과 안내와 브라우저 콘솔 오류·경고 0건도 확인했다.
+- `rtk npm run typecheck`, production build(62 modules), `rtk proxy python scripts/verify_portal_submission.py`, `rtk git diff --check` 통과. 당시 제출 ZIP은 28개 파일, 8,862,228 expanded bytes / 7,673,059 ZIP bytes, SHA-256 `21add3dc1327dcde7f7bd684de6121e42224382c1a526b14c6e1dcef4ed4ab9d`.
+- 제한: 브라우저 프로필이 첫 함정 튜토리얼 완료 상태라 새 이용자 HUD 안내는 브라우저에서 재표시하지 못했고, 승리 결과는 승리 런 캡처 대신 코드·빌드로 확인했다. 전환율·재도전율은 실제 플레이 데이터가 없어 미측정이다. 최신 애니메이션/보스 파동 영상 재촬영과 Poki/CrazyGames 포털 QA가 남았다.
+
+## 플레이어 반응 계측 및 최신 제출물 — 2026-10-13
+
+- Poki 공식 `measure()` 이벤트로 캠페인 층별 시작/승패, 첫 함정 튜토리얼 시작/완료, 안내 및 결과 화면의 재도전·다음 층·친구 도전·보상 선택지 노출/선택을 계측하도록 했다. 외부 분석 SDK는 추가하지 않았고 계측 예외는 플레이를 막지 않는다. 연습 전용 도전은 캠페인 진행률에서 제외한다.
+- CrazyGames는 기존 SDK 수명주기 이벤트를 사용하고, 실제 플레이 지표는 Developer Portal 대시보드와 QA 도구에서 확인하도록 구분했다. 포털 이벤트 수신이나 실제 이용자 데이터는 아직 검증하지 않았다.
+- 포털 어댑터의 CrazyGames/Poki 전역은 실제 호출 메서드에 한정한 인터페이스로 선언해 `any` 억제를 제거했다.
+- `rtk npm run typecheck`, Vite 프로덕션 빌드(62 modules; `dist/index.html` 1,645,901 bytes / gzip 457.19 kB), `rtk python scripts/verify_portal_submission.py` 통과.
+- 최신 ZIP 두 개는 28개 파일, expanded 8,862,228 bytes / compressed 7,673,059 bytes이며 SHA-256 `21add3dc1327dcde7f7bd684de6121e42224382c1a526b14c6e1dcef4ed4ab9d`로 같다. 구버전 네 ZIP은 삭제하지 않고 `archive/legacy-submissions/`로 옮겼다.
+- 심사 전 남은 항목: 현재 플레이를 담은 미리보기 영상 재촬영, Poki 제출용 실제 게임플레이 스크린샷 3장, Poki Inspector 이벤트 로그, CrazyGames QA, 실제 모바일 및 4GB급 기기 확인. 로컬 verifier는 이 포털 전용 검수를 대체하지 않는다.
+
+## 심사 준비도와 영상 표본 재점검 — 2026-10-13
+
+- 준비도 점수는 내부 추정 **6.2/10(요약 6/10)**이다. 첫 플레이·게임플레이 7/10(30%), 이미지·영상 6/10(25%), 빌드·패키지 8/10(25%), 실제 플레이어/포털 검증 증거 3/10(20%)으로 계산했다. 승인 확률이나 실제 상업 성과를 뜻하지 않는다.
+- Poki v3 3초, CrazyGames 가로 v2 5초·14초 및 세로 v2 7초·14초 표본에서 실제 전투 프레임을 확인했다. 따라서 기존 문서의 “영상에 새 캐릭터 애니메이션이 없다”는 단정은 철회한다. 표본만으로 현재 ZIP과 영상 캡처 빌드의 동일성 또는 보스 저공·고공 파동/웅크리기 장면의 포함은 확인되지 않았다.
+- CrazyGames 세로 프리뷰는 720×1080 파일 안에 16:9 게임 프레임을 중앙 배치하고 흐린 배경으로 채운다. 메타데이터는 통과하지만 화면 높이 약 38%만 실제 게임 화면이라 읽기성이 낮은 품질 위험이다. 포털 프리뷰에서 가독성을 확인하거나 실제 플레이 캡처 구도를 개선한다.
+- 현재 제출 후보에는 Poki 실제 게임플레이 스크린샷 3장이 없다. Poki 제출 검수, Poki Inspector, CrazyGames QA, 실기기/저사양 검증도 미실행이다.
+- `scripts/verify_portal_submission.py`를 로컬 산출물 통과와 포털/사람 확인 대기가 구분되도록 보강했다. 검증 결과는 스크린샷, 영상 최신성·구성, 포털 QA, 기기 검증을 `PENDING`으로 표시한다.
+- 제출 미디어의 파일 수정 시각을 대조했다. 선택된 Poki v3와 CrazyGames landscape/portrait v2 영상은 2026-10-13 11:23~11:29 KST, 최신 `src/game/BossScene.ts`는 18:47 KST, 현재 share-fallback ZIP은 19:57 KST다. 표본 프레임은 실제 게임플레이를 포함하지만 파일 시각은 최신 소스보다 약 7시간 빠르므로 최신 ZIP과 같은 캡처로 인정하지 않고 교체 대상으로 본다.
+- `submission-media/poki-gameplay/README.md`에 Poki 스크린샷 3장 파일명·확장자·5MiB/25MP 제한과 수동 콘텐츠 확인 요건을 고정했다. 제출 ZIP에는 넣지 않는 별도 포털 미디어다.
+- `scripts/verify_portal_submission.py`에 스크린샷 슬롯별 허용 확장자·파일 크기·이미지 치수 검사를 추가했다. 현재 3장은 모두 미제공이라 해당 줄은 `PENDING`이어야 한다. 실제 게임플레이인지와 최신 빌드 캡처인지의 판단은 자동검사로 대체하지 않는다.
+
+## 제출 전 게임플레이·공유 경로 보강 — 2026-10-13
+
+- CrazyGames 현재 기본 게임플레이 요건을 다시 대조했다. 영어 지원은 필수지만 추가 번역은 조건부다. 현재 게임은 영어 UI이므로 로케일 번역층을 부분적으로 추가하지 않고, 공식 gameplay requirements 링크와 함께 계획서/준비 리포트에서 이를 명시했다.
+- 결과 공유에는 `navigator.share` → 클립보드 → 선택 가능한 메시지 입력란 순으로 대체 경로가 있다. 코드 검토 중 비동기 Poki URL이 준비되기 전에 누르면 도전 정보 없는 기본 주소가 공유될 수 있는 경합을 찾아 동기 fallback URL 생성으로 막았다. 현재 층·모드·승패·함정 횟수·피해율이 fallback query에 포함된다.
+- `scripts/verify_portal_submission.py`에 공유 URL fallback 정적 회귀 조건을 추가했다. `rtk npm run typecheck`와 Vite production build를 통과했다. 첫 build는 샌드박스 `realpath EPERM`으로 실패해 기존 명령을 허용된 작업공간 접근으로 다시 실행했고, dist를 정상 재생성했다.
+- share fallback 변경 전 ZIP은 `archive/legacy-submissions/boss-reverse-runner-submission-2026-10-13-boss-wave-pre-share-fallback.zip`에 SHA-256 일치 여부를 확인해 복사 보존했다. 새 날짜형 ZIP과 별칭은 28 files, 8,862,290 expanded bytes / 7,673,080 compressed bytes, SHA-256 `ffb67af106707251a0ffe2bbedee38cb47736db3c5a3b5255a74c2ff2d145a48`이다.
+- QA용 `http://127.0.0.1:4173/` 탭을 표시해 둔 채 패배 결과 화면을 1280×720에서 읽기 전용으로 확인했다. 패배별 안내, 도전 공유, Retry/Upgrade/Main Menu와 jump/crouch/roar controls가 화면에 들어왔다. 화면은 검사만 했고 파일로 내보내지 않았다. 브라우저 공유/클립보드 실패 상태를 실제 클릭으로 실행하는 검수는 하지 않았다.
+- 최종 로컬 재검증 기준 ZIP은 28 files, 8,862,290 expanded bytes / 7,673,080 compressed bytes, SHA-256 `ffb67af106707251a0ffe2bbedee38cb47736db3c5a3b5255a74c2ff2d145a48`이다. 빌드 산출물은 `dist/index.html` 1,645,963 bytes / gzip 457.20 kB다.
+- 포털 verifier의 로컬 아티팩트 검사는 통과하지만, 최신 ZIP에서 Poki/CrazyGames 세 preview 재캡처, Poki 실제 게임플레이 스크린샷 3장, Poki Inspector, CrazyGames QA 및 실기기/저사양 검증은 `PENDING`이다. 공유 URL 동기 fallback은 정적 회귀 검사만 통과했으며 브라우저 공유·클립보드 실패 경로를 실행하지 않았다. 내부 점수 6.2/10은 포털 심사 승인이나 상업 성과의 확률이 아니다.
+
+## 첫 세션 튜토리얼·포털 제출 안내서 — 2026-10-13
+
+- 이전 상태 답변을 정정한다. `src/App.tsx`에는 실제 Poki/CrazyGames SDK가 초기화된 신규 프로필을 첫 스테이지로 바로 보내는 흐름이 이미 있었다. CrazyGames Full Launch도 게임으로 직접 진입한다. `localhost`는 포털이 아니므로 메뉴가 보이는 것이 정상이며, 제출 검증 스크립트도 직접 진입 조건을 확인한다.
+- 첫 함정 튜토리얼을 건너뛸 수 있도록 별도 `tutorialSkipped` 저장 상태와 화면 안의 Skip 조작을 추가했다. Skip은 실제 함정 배치 완료로 집계되지 않고, 안내만 닫고 진행을 재개한다.
+- Poki와 CrazyGames의 현재 공식 등록 안내·QA·미디어 조건을 확인해 `PORTAL_SUBMISSION_STEPS_KO.md`에 초보자용 절차를 정리했다. 실제 계정 생성·업로드·최종 제출은 하지 않았다.
+- 최신 Skip 변경의 타입 검사, 프로덕션 빌드, 제출 아티팩트 검사와 diff 검사는 통과했다. 새 Skip UI의 직접 브라우저 상호작용 검증만 남았다.
+- Codex goal 도구가 기존 미완료 목표 때문에 중복 생성을 거부했다. 사용자 요청의 세부 완료 기준은 `implementation_plan.md`에 프로젝트 목표로 기록했고 기존 목표는 계속 열어 둔다.
+
+## 최신 제출 인계 검증 — 2026-10-13
+
+- Skip 튜토리얼 구현이 최신 production ZIP에 포함됐다. `tutorialSkipped` 저장은 실제 첫 함정 배치 완료와 분리되며, skip은 튜토리얼 정지를 해제하고 별도 Poki 측정 이벤트를 사용한다.
+- `rtk npm run typecheck`, `rtk npm run build`, `rtk python scripts/verify_portal_submission.py`, `rtk git diff --check` 통과.
+- 현재 `dist/index.html`: 1,648,266 bytes / gzip 457.61 kB. 현재 ZIP: 28 files, 8,864,593 expanded bytes / 7,673,464 compressed bytes, SHA-256 `45e9f905918108990040ec6b8a973e83d0e0fc42c7008e33349015537e7f4311`. 호환 ZIP 별칭도 같은 해시다.
+- 브라우저는 기존 `localhost:4173` 저장 진행 상태가 있어서 그대로 두었다. 별도 Vite 포트는 IAB에서 연결할 수 없어 Skip 직접 동작은 미검증이다. 화면 캡처를 파일로 저장하거나 내보내지 않았다.
+- 제출 전 남은 항목: 실제 Poki 플레이 화면 스크린샷 3장, 현재 패키지에서 선택된 미리보기 영상 3종 재촬영 및 전체 재생 확인, Poki 공개 플레이 링크 또는 현재 플레이 영상 링크, Poki Inspector/Event Checker, CrazyGames QA, 모바일/저사양 실기기 확인. 로컬 검증은 포털 승인과 다르다.
+
+## 제출 6시간 전 재점검 — 2026-10-13
+
+- 최신 공식 Poki/CrazyGames 제출 안내를 다시 대조했다. 현재 상태는 **제출 보류**다: Poki 실제 플레이 스크린샷 3장, 로그인 없는 플레이 링크, 최신 코드에서 다시 녹화한 세 미리보기, 포털 QA가 대기 중이다.
+- CrazyGames 공식 가이드의 세로 미리보기는 2:3 1080p다. 현재 선택 영상은 720×1080이며, 기존 메타데이터 verifier는 비율·길이·무음만 검사하므로 제출 규격 적합성을 입증하지 못한다. 1080×1620을 실무 목표로 기록하되 포털 입력 규격을 우선한다. `scripts/verify_portal_submission.py`에 해당 미해결 게이트를 추가했다.
+- 세 CrazyGames 커버를 실제 이미지로 열어 확인했다. REVERSE BOSS RUNNER 제목과 영웅/보스는 가독성이 있고, 금지 홍보 문구·앱/포털 아이콘·테두리는 보이지 않았다. 저작권·사용 권리 확인은 별도다.
+- 4178 포트의 Vite 로컬 서버는 시작됐지만, 브라우저에서 접속 시 `ERR_CONNECTION_TIMED_OUT`이었다. 기존 사용자 탭/저장 데이터는 수정하지 않았고 Skip 직접 브라우저 검증은 미완료다.
+- 제출 직전 필수: 최신 Poki 3장 및 공개 링크 준비, 미리보기 세 편 최신 빌드에서 재캡처·전체 재생, 세로 1080p 요건 확인, Poki Inspector와 CrazyGames QA, ZIP SHA-256 재대조. 시간 내 완료되지 않은 항목이 있으면 준비 완료로 표시하지 않는다.
+- 추가 재검증: `rtk npm run typecheck` 통과. 기본 샌드박스의 빌드 시도 두 건은 `EPERM realpath index.html`로 실패했다. 첫 시도 뒤 생성된 `dist`는 기존 ZIP에서 복구했다. 이후 작업공간 권한을 사용해 `rtk npm run build`가 Vite 7.3.2, 62 modules, `dist/index.html` 1,648,266 bytes / gzip 457.61 kB로 통과했다. 최종 verifier에서 ZIP/`dist` 일치와 SHA-256도 재확인했다.
+
+## 결과 화면 원인 안내 수정 및 재패키징 — 2026-10-13
+
+- 수정 전 B1 실행 화면에서 `boss-defeated` 런인데 결과 문구가 영웅의 출구 도달을 뜻하는 “He found a gap in your defenses”로 표시되는 걸 확인했다. 화면 수치는 boss HP 0/100, hero HP 90/90이었고, 원인은 종료 사유별 분기 부재였다.
+- `ResultModal`을 수정해 보스 패배와 출구 도달을 구분했다. 보스 패배는 “He struck you down before your traps landed...” 등 공격 회피와 함정 배치를 안내한다. 제출 verifier에 이 회귀 조건을 추가했다.
+- 최신 production bundle을 1280×720에서 locked-floor B2 연습 도전으로 실행했다. 12.7초 뒤 boss HP 0/100, hero HP 130/130, traps 0, hits 0인 패배와 새 문구를 확인했다. 결과에 `PRACTICE CHALLENGE · NO GEMS OR PROGRESS`가 표시되어 저장 진행도 없는 연습 경로임을 확인했다.
+- `rtk npm run build` 통과: TypeScript 포함, Vite 7.3.2, 62 modules, `dist/index.html` 1,646,308 bytes / gzip 457.28 kB. `rtk python scripts/verify_portal_submission.py`와 `rtk git diff --check`도 통과했다.
+- 최신 ZIP은 28 files, 8,862,635 expanded bytes / 7,673,163 compressed bytes, SHA-256 `14096fb37cf67d794570581ea66adacce2bb72196b6d4e91d854db32fb56d0cb`이다. 직전 share-fallback ZIP은 `archive/legacy-submissions/boss-reverse-runner-submission-2026-10-13-share-fallback-pre-result-narrative.zip`에 해시 확인 후 보존했다.
+- 미디어 최신성 검사에서는 Poki v3와 CrazyGames 가로/세로 v2 세 영상이 여전히 이전 코드에서 만들어진 것으로 나타났다. Poki 스크린샷 3장, 최신 미디어 전체 재생 검수, 두 포털 QA, 실기기/저사양 확인도 남았다. 이번 1280×720 무보상 런은 이 게이트들을 대체하지 않는다.

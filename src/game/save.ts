@@ -17,6 +17,7 @@ export function defaultSave(): SaveData {
     musicVolume: 1,
     sfxVolume: 1,
     seenTutorial: false,
+    tutorialSkipped: false,
     lowFx: false,
     lastDaily: 0,
     dailyStreak: 0,

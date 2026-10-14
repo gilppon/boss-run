@@ -1,12 +1,13 @@
 import Phaser from "phaser";
 import { minionStompChance, spikeReactionChance } from "./characterBehavior";
-import { CELL, GRAVITY, GROUND_Y, HERO_H, HERO_HALF_W, MINION_H, SPIKE_H } from "./constants";
+import { CELL, GRAVITY, GROUND_Y, HERO_H, HERO_HALF_W, MINION_H, SPIKE_H, SPIKE_REACTION_HOLD } from "./constants";
 import { HeroView } from "./characters";
+import { getHeroAttackDodgeAction, type DodgeAction } from "./heroAttack";
 import type { Fx } from "./fx";
 import type { FloorDef, HeroCharacterDef, HeroHeroAI, TrapStats, TrapType } from "./types";
 import type { Cluster, TrapManager } from "./TrapManager";
 
-export type DamageSource = "lava" | "spike" | "fire" | "contact" | "helm";
+export type DamageSource = "lava" | "spike" | "fire" | "contact" | "helm" | "boss-attack";
 
 interface JumpPlan {
   c0: number; // jump once past this X (the centre of the window)
@@ -44,6 +45,7 @@ export class HeroAIController {
   attackCd = 1.0;
   isCharging = false;
   chargeT = 0;
+  private chargingMelee = false;
 
   // status effects
   stun = 0;
@@ -57,6 +59,10 @@ export class HeroAIController {
   invul = 0;
   contactCd = 0;
   private jumpCd = 0;
+  private crouchT = 0;
+  private incomingAttackAction: DodgeAction | null = null;
+  private incomingAttackT = 0;
+  private spikeExposures = 0;
   rage = false;
   private deathT = 0;
 
@@ -91,8 +97,22 @@ export class HeroAIController {
     return !this.alive && this.deathT > 1.5;
   }
 
+  get isCrouching(): boolean {
+    return this.onGround && this.crouchT > 0;
+  }
+
   canBeHit(): boolean {
     return this.alive && this.invul <= 0;
+  }
+
+  notifyIncomingBossAttack(action: DodgeAction) {
+    if (!this.alive || this.incomingAttackAction) return;
+    this.incomingAttackAction = action;
+    this.incomingAttackT = 0.22;
+    const warning = action === "jump" ? "GROUND WAVE · JUMP!" : "SKY WAVE · CROUCH!";
+    const color = action === "jump" ? "#fde047" : "#67e8f9";
+    this.fx.text(this.x, this.y - 92, warning, color, 20);
+    this.view.brace();
   }
 
   // ---------- effects called from outside ----------
@@ -155,13 +175,24 @@ export class HeroAIController {
     this.onGround = false;
   }
 
-  /** Notices that a drop spike has started falling */
+  /** Reads a falling spike, waits for it to land, then plans a jump over it. */
   notifySpikeFall() {
-    const reactionChance = spikeReactionChance(this.floor.heroDodge, this.character.behavior.spikeReactionBonus);
-    if (this.onGround && Math.random() < reactionChance) {
-      this.brake = 0.55;
+    const reactionChance = spikeReactionChance(
+      this.floor.heroDodge,
+      this.character.behavior.spikeReactionBonus,
+      this.spikeExposures,
+    );
+    this.spikeExposures += 1;
+    if (
+      this.onGround &&
+      this.stun <= 0 &&
+      this.brake <= 0 &&
+      this.jumpCd <= 0 &&
+      Math.random() < reactionChance
+    ) {
+      this.brake = SPIKE_REACTION_HOLD;
       this.view.brace();
-      this.fx.text(this.x, this.y - 84, "!", "#ffe14d", 34);
+      this.fx.text(this.x, this.y - 84, "SPIKE READ!", "#ffe14d", 22);
     }
   }
 
@@ -192,7 +223,30 @@ export class HeroAIController {
     this.invul = Math.max(0, this.invul - dt);
     this.contactCd = Math.max(0, this.contactCd - dt);
     this.jumpCd = Math.max(0, this.jumpCd - dt);
+    this.crouchT = Math.max(0, this.crouchT - dt);
     if (this.knockV < 0) this.knockV = Math.min(0, this.knockV + 2300 * dt);
+
+    if (this.incomingAttackAction) {
+      this.incomingAttackT -= dt;
+      if (this.incomingAttackT <= 0) {
+        const action = this.incomingAttackAction;
+        if (action === "crouch" && !this.onGround) {
+          this.incomingAttackT = 0.05;
+        } else {
+          this.incomingAttackAction = null;
+          if (this.stun <= 0 && this.brake <= 0) {
+            if (action === "jump" && this.onGround && this.jumpCd <= 0) {
+              this.crouchT = 0;
+              this.jump();
+            } else if (action === "crouch" && this.onGround) {
+              this.crouchT = 0.78;
+              this.fx.text(this.x, this.y - 68, "CROUCH!", "#67e8f9", 18);
+              this.fx.ring(this.x, GROUND_Y - 8, 0x67e8f9, 5);
+            }
+          }
+        }
+      }
+    }
 
     this.targetDistance = bossX - this.x;
 
@@ -225,7 +279,11 @@ export class HeroAIController {
           this.chargeT = 0.32;
           this.view.brace();
           const isMelee = this.targetDistance < 130;
-          this.fx.text(this.x, this.y - 70, isMelee ? "⚔️ STRIKE!" : "⚡ AIM!", "#f43f5e", 22);
+          this.chargingMelee = isMelee;
+          const dodge = getHeroAttackDodgeAction(this.character.silhouette, isMelee);
+          const warning = isMelee ? "STRIKE! JUMP!" : dodge === "jump" ? "LOW SHOT! JUMP!" : "HIGH SHOT! CROUCH!";
+          const warningColor = dodge === "jump" ? "#fde047" : "#67e8f9";
+          this.fx.text(this.x, this.y - 70, warning, warningColor, 22);
           this.fx.ring(this.x, this.y - 30, 0xf43f5e, 6);
         }
       }
@@ -253,7 +311,7 @@ export class HeroAIController {
     c.setPosition(this.x, this.y);
     c.rotation = 0;
     c.alpha = this.invul > 0 && Math.floor(this.invul * 22) % 2 === 0 ? 0.4 : 1;
-    this.view.update(dt, this.speed, this.onGround, this.vy, false, this.stun > 0, this.rage);
+    this.view.update(dt, this.speed, this.onGround, this.vy, false, this.stun > 0, this.rage, this.isCrouching);
     const h = Math.max(0, GROUND_Y - this.y);
     this.shadow.setPosition(this.x, GROUND_Y + 3).setScale(Math.max(0.4, 1 - h / 300) * 0.9, 1).setAlpha(0.8);
   }
@@ -274,9 +332,10 @@ export class HeroAIController {
   // ---------- AI ----------
   private performAttack() {
     this.attackCd = this.rage ? (1.1 + Math.random() * 0.4) : (1.6 + Math.random() * 0.6);
-    this.view.brace();
+    this.view.attack();
     const kind = this.character.silhouette;
-    const isMelee = this.targetDistance < 130;
+    const isMelee = this.chargingMelee;
+    this.chargingMelee = false;
     this.onAttack?.(kind, this.x + 24, this.y - 36, isMelee);
   }
 
@@ -347,8 +406,13 @@ export class HeroAIController {
   previewTrap(type: TrapType, cell: number, stats: TrapStats, tm: TrapManager): string {
     if (!this.alive) return "HERO DOWN";
     if (type === "Spike") {
-      const dodge = Math.round(spikeReactionChance(this.floor.heroDodge, this.character.behavior.spikeReactionBonus) * 100);
-      return `BRACE ${dodge}% · NO BRACE ${100 - dodge}%`;
+      if (!this.onGround || this.stun > 0 || this.brake > 0 || this.jumpCd > 0) return "HERO BUSY · READ CHANCE LOW";
+      const dodge = Math.round(spikeReactionChance(
+        this.floor.heroDodge,
+        this.character.behavior.spikeReactionBonus,
+        this.spikeExposures,
+      ) * 100);
+      return `SPIKE READ ${dodge}% · THEN JUMP`;
     }
     if (type === "Minion") {
       if (stats.spiked) return "SPIKED · NO STOMP";

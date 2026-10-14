@@ -424,3 +424,161 @@ CrazyGames의 Super Smash Flash 소개는 빠르고 강한 전투, 기술/콤보
 - Typecheck and production build passed (Vite 7.3.2, 60 modules, dist/index.html 1,606.70 kB / gzip 448.05 kB); git diff --check passed. Browser and port 5188 server closed.
 - Sources: CrazyGames ad requirements https://docs.crazygames.com/requirements/ads/ ; Automatic Progress Save https://docs.crazygames.com/other/aps/ ; Data module https://docs.crazygames.com/sdk/data/
 - Next: verify actual audio mix/quality and SDK lifecycle in an isolated CrazyGames-like mock; then continue natural stage and device QA. Overall objective remains active.
+
+## Poki/CrazyGames first-pass readiness — 2026-10-12
+
+### Goal
+
+Reduce avoidable technical and operational rejection risks for both portals, produce a current reviewable build package, and record any remaining platform-owned or unavailable validation. A third-party editorial approval cannot be guaranteed from this repository.
+
+### Baseline findings
+
+- `index.html` loads CrazyGames SDK on every host, while `src/game/portalAd.ts` can select CrazyGames before Poki and defaults unknown hosts to CrazyGames.
+- The local rewarded fallback can report success when no ad UI is registered; ad UI is registered in production without a development guard.
+- SDK loading-finished is sent at React mount instead of after game assets are ready; gameplay-start is sent before Phaser is ready.
+- Retry/next-run currently requests commercial ads, while pause/resume does not follow the Poki pause-break sequence.
+- Result-screen rewarded buttons are visually more prominent and appear before the standard continue action.
+- `POKI_SUBMISSION_GUIDE.md` contains stale “100% compliant / Event Checker passed” claims. The checked 512px icon is below Poki's square-thumbnail minimum and no animated MP4 thumbnail was found.
+- `boss-reverse-runner.zip` predates the current sprite asset changes and does not include the current `public/sprites` directory.
+- `npm run build` failed three times with the same Vite `EPERM` realpath error on `index.html`; do not repeat that identical invocation.
+
+### Execution plan
+
+1. Make provider detection host-first and load only the selected SDK; never infer CrazyGames on an unknown production host.
+2. Confine simulated ads and rewards to development. Hide rewarded actions when the selected provider/launch stage cannot serve ads; default CrazyGames to Basic Launch unless explicitly built with `VITE_CRAZYGAMES_LAUNCH=full`.
+3. Tie SDK lifecycle events to actual readiness and gameplay, request Poki ad breaks only when resuming a user pause, keep CrazyGames ads off pause/settings screens, and avoid CrazyGames focus-loss gameplay-stop events.
+4. Make Retry/Next the primary result action and place any optional rewarded action after it.
+5. Correct portal documentation, make a square thumbnail from the current visual identity if source quality permits, build/inspect a fresh package, and record the missing animated asset if it cannot be produced reliably here.
+
+### Verification and boundaries
+
+- Run typecheck, focused static assertions for provider/lifecycle/UI guards, `git diff --check`, and inspect any current archive; if no fresh build can be produced, mark the old package stale.
+- No root config, package manifest, or lockfile changes are authorized.
+- Do not report live portal acceptance, live SDK callbacks, or the Poki Event Checker as passed without direct portal evidence.
+
+### Execution status — 2026-10-12
+
+- Implemented provider-specific SDK selection, production fail-closed reward handling, CrazyGames Basic/Full ad gating, asset/Phaser lifecycle timing, pause/focus events, active-request deduplication without a platform ad-frequency timer, one revive per session, and equal-size result action styling.
+- Replaced the outdated Poki guide claims and wrote `PORTAL_SUBMISSION_READINESS.md` with the current verdict and external validation gaps.
+- Created `poki-thumbnail-v2-1254x1254.png` (1,254×1,254) using the in-game default boss sprite as its character reference, plus `poki-animated-preview-1080x1080.mp4` at 50fps, 5 seconds, silent (2,702,955 bytes). The video starts on the text-free static thumbnail and fits the complete 16:9 gameplay frame inside the square canvas so side HUD elements remain visible.
+- `rtk npm run typecheck`, focused portal source guards, and `rtk git diff --check` passed.
+- Corrected Poki `rewardedBreak` to use its documented start callback function and removed the internal 3-minute rewarded-ad timer. Added CrazyGames SDK `muteAudio` initial state and change-listener handling, with portal mute taking priority over the in-game toggle.
+- Added Poki page-scroll guards for Space, Up/Down arrows, and wheel input over gameplay while preserving keyboard/wheel behavior on interactive controls.
+- The default sandbox blocks Vite/Rollup realpath access with `EPERM`; the production build passed with elevated access in the authorized project workspace: Vite 7.3.2, 61 modules, `dist/index.html` 1,626.01 kB / gzip 452.51 kB.
+- Recreated `boss-reverse-runner-submission-2026-10-12.zip` from the current `dist/`: 19 files, 2,804,155 expanded bytes, 1,635,378 ZIP bytes. Every entry SHA-256 matches the build output; root `index.html` and current sprites are present. Refreshed `boss-reverse-runner.zip` as an identical alias; both archives have SHA-256 `3d24e96172955ca67b9069a1497975f3c9ca20a2ac27636c963d20f92c5335f4`.
+- Added `scripts/verify_portal_submission.py`; it passes current SDK/dev-mock guards, English/no-outgoing-link/custom-fullscreen checks, both ZIP/dist byte matches, cover dimensions, video metadata and platform size limits. Latest interactive browser smoke remains unverified because Playwright CLI installation was blocked by DNS and the local preview port was isolated between tool processes.
+- CrazyGames Full Launch builds now start directly in the saved unlocked floor after portal and asset loading. The packaged ZIP omits the Full Launch flag, so it is for Poki/CrazyGames Basic Launch; a separate Full Launch build is still needed if selected.
+- The current bundle is below CrazyGames' aggregate size, initial download, and file-count limits. The three CrazyGames covers (1920×1080, 800×1200, 800×800) now share the `REVERSE BOSS RUNNER` title while preserving their original art. Silent gameplay previews: landscape 1920×1080/30fps/16.80 seconds/22,258,913 bytes and portrait 720×1080/30fps/16.77 seconds/4,867,688 bytes. Both begin on their matching titled static cover; portrait gameplay is fitted in full without cropping HUD. The Poki preview is 1080×1080/50fps/5 seconds/2,702,955 bytes and begins on its text-free static thumbnail. Local validation passed; portal QA and mobile browser checks remain pending.
+- The CrazyGames portrait preview is a moving 2:3 crop of real landscape gameplay; the game itself displays a rotate-to-landscape overlay in a portrait viewport. Validate this presentation and supported orientation in CrazyGames QA.
+- Captured actual B1 gameplay from the production `dist/` in an isolated Chromium session. `ffprobe` confirmed video-only streams, expected dimensions, frame rates, and durations; sample gameplay and opening-cover frames were visually reviewed.
+- A targeted source scan found only the official portal SDK URLs as external hosts; storage reads/writes/deletes already fail closed under `try/catch`, and challenge sharing uses native share/copy. This is static evidence only; the Poki Inspector's request and incognito checks remain pending.
+- Live Poki/CrazyGames SDK previews, Poki Event Checker, mobile QA, and CrazyGames Quality Assurance Tool remain unverified. Local assets are prepared; final readiness depends on those portal-owned checks.
+
+## Character animation integration — 2026-10-13
+
+- Added nine 12-pose atlases (five heroes and four bosses), registered their frame grids, and mapped frames to existing movement, attack, damage, dodge, and trap-placement states.
+- Preserved gameplay values and collision shapes. Cached frame changes so a sprite only changes texture frame when its selected pose changes.
+- Typecheck, production build, portal artifact verifier, and `git diff --check` pass. The current submission ZIP expands to 8,862,228 bytes, including 6,038,186 bytes of animation sheets, below CrazyGames' 20 MB mobile-homepage initial-download ceiling when treated as the whole package.
+- Runtime verification completed on the rebuilt production bundle: desktop gameplay showed the hero/boss sprites, `LOW SHOT! JUMP!` / `HERO WILL JUMP` telegraph, and dodge controls; 390×844 portrait showed the rotate prompt; 844×390 landscape auto-resumed with jump/crouch controls. A 390px menu overflow was found and fixed with `min-w-0`; measured cards are 348px and page horizontal scroll remains 390px.
+- Current ZIP after the boss-wave update: `boss-reverse-runner-submission-2026-10-13-boss-wave.zip`, 28 files, 8,862,228 expanded bytes, 7,673,059 ZIP bytes; SHA-256 `21add3dc1327dcde7f7bd684de6121e42224382c1a526b14c6e1dcef4ed4ab9d`. Typecheck, production build, artifact verifier, and `git diff --check` pass.
+- Reused ROAR as a two-lane boss volley: low wave prompts the hero to jump, then a delayed high wave waits for landing and prompts a crouch. Added a visible CROUCH cue; only a collision deals 16 damage, outside trap-hit/combo accounting.
+- Production browser smoke showed the ROAR launch, low-wave warning, hero jump, and both projectile lanes. The observed run ended with Hero HP 90/90 and Hero Damage 0%; a dedicated screenshot of the crouch pose was not captured.
+- Remaining release gate: recapture Poki/CrazyGames gameplay previews from this build, then run Poki Inspector/Event Checker and CrazyGames QA. Local runtime behavior is verified; portal approval is not.
+- Browser console error/warning log: 0 entries. A numeric FPS sample could not be collected because the browser evaluation surface does not expose `requestAnimationFrame` or `performance`; verify frame rate on an actual low-memory/mobile device during platform QA.
+
+## Emotional engagement and first-run entry — 2026-10-13
+
+- Reframed the menu around the hero-versus-demon stakes, refined first-trap guidance and placement feedback, and made the result debrief respond to win/loss reason, trap hits, and hero damage.
+- Kept one fixed Deploy action visible at 390×844, 844×390, and 1280×720. Browser measurements showed no horizontal page overflow; the loss result copy was visually reviewed.
+- Typecheck, production build, portal artifact verifier, and `git diff --check` pass. The verifier now asserts the current tutorial prompt and trap-placement success message.
+- Limitations: the saved browser profile had already completed the tutorial, and a win result was not captured in a victory run. Portal conversion/retention data and portal QA remain outstanding.
+
+## Poki / CrazyGames pre-review hardening — 2026-10-13
+
+### Objective
+
+Bring the local release candidate to the strongest condition we can verify before portal review. Do not describe a local check as a portal approval or claim player fit without portal data.
+
+### Official review gates
+
+- **Poki technical:** run the Poki Inspector QA modules, Event Log, warnings, mobile QR test, and scaling checks. Poki requires `gameplayStart()` on the player's first gameplay input, no duplicate lifecycle events, robust incognito storage, a responsive 16:9 game, no non-SDK external requests, and a clean build. Reference: [Poki Requirements](https://developers.poki.com/guide/requirements-quality), [Poki Inspector](https://developers.poki.com/guide/inspector).
+- **Poki player fit:** gather playtest recordings, run the 500-player Player Fit test, and iterate on the first-minute loop. Poki's published advance bar is 3+ minutes average and 25%+ of plays over 3 minutes; its stronger pre-review target is 5+ minutes average and 65%+ conversion-to-play in Web Fit. Reference: [How testing works](https://developers.poki.com/guide/how-testing-works), [Player Fit test](https://developers.poki.com/guide/player-fit-test), [Web Fit test](https://developers.poki.com/guide/web-fit-test).
+- **CrazyGames:** verify first-playable download measurement, controls and readability at the listed desktop/mobile/tablet sizes, safe-area behavior, performance on a 4GB Chromebook-class device, correct locale fallback, and its Developer Portal Quality Assurance Tool. Reference: [Technical requirements](https://docs.crazygames.com/requirements/technical/), [Gameplay requirements](https://docs.crazygames.com/requirements/gameplay/), [Quality guidelines](https://docs.crazygames.com/requirements/quality/), [Quality Assurance Tool](https://docs.crazygames.com/requirements/intro/).
+- **Submission media and craft:** current preview videos must show the current animation/dodge build. Poki additionally asks for three actual gameplay screenshots at initial submission and reviews originality, cohesive visuals, and first impression. Reference: [Poki submission form](https://developers.poki.com/guide/share), [What we look for](https://developers.poki.com/guide/what-we-look-for), [Poki game page assets](https://developers.poki.com/guide/your-game-page).
+
+### Execution order
+
+1. **Fix Poki first-input lifecycle:** defer Poki `gameplayStart()` until a real user gesture in gameplay while preserving CrazyGames' start event at the first playable state after required assets load. Keep pause/resume/end events paired and idempotent.
+2. **Fix tutorial completion semantics:** closing the help panel must not mark the first-trap task complete. Persist completion only after the player actually places a trap.
+3. **Reduce initial asset work:** measure which sprites are needed for the first playable floor; load the minimum required set before the platform's initial download checkpoint, then load later-floor atlases only when needed if the existing cache supports it safely.
+4. **Preserve the language baseline and device fit:** the current English-only UI satisfies CrazyGames' mandatory English localization baseline. Additional locales are optional; add them only with complete, accurate translations selected from platform locale with English fallback. Keep validating the full desktop/mobile viewport matrix.
+5. **Verify keyboard and share fallbacks:** gameplay exposes keyboard hotkeys and accessible labels on touch controls. A static regression guard confirms the challenge URL is built synchronously when the portal share URL is not ready; browser checks for share/clipboard failure and selectable-message fallback remain pending.
+6. **Refresh genuine gameplay evidence:** capture three Poki gameplay screenshots and updated Poki/CrazyGames preview videos from the final production bundle. Inspect crop, text legibility, gameplay accuracy, aspect ratio, frame rate, duration, file size, and audio.
+7. **Run local release matrix:** test Poki reference dimensions plus CrazyGames desktop (907×510, 1216×684, 1077×606, 821×462, 1366×768, 1920×1080, 1536×864, 1280×720), mobile (800×450), tablet (1080×607), 390×844 portrait, and 844×390 landscape. Check gameplay, pause/resume, first trap, result/retry, browser console, horizontal overflow, and load/build size.
+8. **Finalize proof and handoff:** update the submission verifier, ZIP contents/checksums, release report, and remaining portal checklist. Preserve creator/tool/prompt provenance for generated art; do not invent missing provenance.
+
+### Current findings and boundaries
+
+- Fixed locally: Poki `gameplayStart()` remains pending until first player input, while CrazyGames receives its event when the scene is playable. The source verifier checks this guard; the Poki Inspector Event Log still needs portal verification.
+- Fixed locally: the first-trap tutorial is marked complete after a successful trap placement; closing Help does not complete it.
+- Language baseline: the production UI is English-only, which meets the mandatory English-localization rule. CrazyGames only requires SDK-locale selection when translations are included; adding incomplete translations would create a new accuracy risk. Validate viewport text legibility rather than adding partial translations. [CrazyGames gameplay requirements](https://docs.crazygames.com/requirements/gameplay/)
+- Share fallback: the result action falls back from native share to clipboard and then to a selectable textarea, verified in source. The last fallback still needs a browser interaction check.
+- Selected first-run sprites load before the gameplay checkpoint; unused character sheets remain deferred. The full CrazyGames viewport matrix and a 4GB-class device remain untested.
+- The current Poki and CrazyGames preview videos predate the animation/dodge build. Their metadata passes; their gameplay content is stale.
+- Portal-only gates require the developer accounts: Poki Inspector/Event Checker, real playtests and fit tests, CrazyGames Quality Assurance Tool, and real mobile/low-memory hardware. No upload, account change, or portal submission is included in this local work.
+
+## Player-response measurement and current package — 2026-10-13
+
+- Added Poki `measure()` events for campaign floor starts and outcomes, the first-trap tutorial funnel, and visibility/interaction on retry, next-floor, challenge-share, rewarded victory bonus, and revive options. The wrapper is Poki-only, optional, and catches SDK errors so analytics cannot block gameplay. Practice-only challenge runs are excluded from campaign progress.
+- CrazyGames retains its SDK lifecycle integration and uses the platform dashboard/QA tools for player metrics; no third-party analytics SDK or external request was added.
+- Portal globals now use narrow CrazyGames/Poki API interfaces for the methods this adapter calls; the adapter no longer suppresses `any` types.
+- Local verification passed after this change: typecheck, Vite production build (62 modules; `dist/index.html` 1,645,901 bytes / gzip 457.19 kB), and `scripts/verify_portal_submission.py`.
+- Current package: `boss-reverse-runner-submission-2026-10-13-boss-wave.zip` and `boss-reverse-runner.zip`, 28 files, 8,862,228 expanded bytes, 7,673,059 compressed bytes; matching SHA-256 `21add3dc1327dcde7f7bd684de6121e42224382c1a526b14c6e1dcef4ed4ab9d`. Four older root ZIPs were preserved under `archive/legacy-submissions/`.
+- Remaining gates: capture current gameplay videos and three Poki gameplay screenshots; confirm actual Poki SDK events in Inspector; run CrazyGames QA and real device checks. No player conversion, retention, or approval result is claimed.
+
+## Share fallback and current package — 2026-10-13
+
+- Fixed a race in the result modal: if Poki's asynchronous share URL is not ready when the challenge button is clicked, it now synchronously builds a fallback URL containing the current floor, mode, outcome, trap hits, damage, and trap count.
+- Added a portal verifier regression condition for the challenge URL fallback. Typecheck, production build, and local artifact verification pass. Native-share, clipboard-failure, and selectable-message fallback behavior still need browser QA.
+- Regenerated and verified the canonical ZIP: 28 files, 8,862,290 expanded bytes / 7,673,080 compressed bytes, SHA-256 `ffb67af106707251a0ffe2bbedee38cb47736db3c5a3b5255a74c2ff2d145a48`. The previous validated ZIP is preserved under `archive/legacy-submissions/boss-reverse-runner-submission-2026-10-13-boss-wave-pre-share-fallback.zip`.
+- Preview videos and Poki gameplay screenshots are still separate from the game ZIP. They must be captured from the final package, then checked visually and in each portal. No approval claim is made.
+
+## Result narrative cause fix and refreshed package — 2026-10-13
+
+- Before the fix, a 1280×720 B1 result screen showed the hero at full HP and the boss at 0 HP, while the generic loss copy claimed the hero had reached the gate. The actual end reason was `boss-defeated`, so that coaching text was misleading.
+- Added a distinct `boss-defeated` narrative branch. `exit-reached` keeps its gate-specific coaching; boss defeat now explains that the hero struck the defender down and recommends dodging and trap placement. The submission verifier protects this branch with a static regression guard.
+- Runtime verification used a locked-floor B2 practice challenge. It ended after 12.7 seconds with 0 traps/hits and 0% hero damage; the new boss-defeat text appeared in the result modal. `PRACTICE CHALLENGE · NO GEMS OR PROGRESS` confirmed this run did not advance campaign rewards or progress.
+- `rtk npm run build` passed (TypeScript included; Vite 7.3.2, 62 modules; `dist/index.html` 1,646,308 bytes / gzip 457.28 kB). `rtk python scripts/verify_portal_submission.py` and `rtk git diff --check` passed for local artifacts.
+- Current ZIP: 28 files, 8,862,635 expanded bytes / 7,673,163 compressed bytes, SHA-256 `14096fb37cf67d794570581ea66adacce2bb72196b6d4e91d854db32fb56d0cb`. The previous share-fallback package is preserved at `archive/legacy-submissions/boss-reverse-runner-submission-2026-10-13-share-fallback-pre-result-narrative.zip`.
+- Selected preview timestamps still predate the current code by over eight hours. Fresh Poki/CrazyGames preview capture, Poki screenshots, portal/device QA, and the native-share/clipboard-failure interaction remain outstanding.
+
+## Active goal: first-session onboarding and portal submission handoff — 2026-10-13
+
+### Goal
+
+Prepare Reverse Boss Runner for the strongest verifiable Poki/CrazyGames review condition: keep first-time portal players in immediate gameplay, teach the first trap inside the game with a clear optional skip, then give the developer a beginner-friendly Korean guide for submitting the correct build and media without confusing the two portals.
+
+### Completion checks
+
+1. Verify the real portal first-run route starts the campaign directly and uses the first-trap in-game hint; distinguish this from `localhost`, which intentionally shows the developer menu.
+2. Make the first-trap tutorial skippable without falsely recording a successful first trap. Persist the skip choice separately, resume the run, and track skip separately from completion.
+3. Pass typecheck, production build, the existing portal artifact verifier, and a local first-run/skip browser smoke check without resetting the user's saved progress.
+4. Create `PORTAL_SUBMISSION_STEPS_KO.md` from current official Poki and CrazyGames documents. Explain the different first-submission flows, exact project files, required media, review stages, and a final no-mistakes checklist.
+5. Record missing current-build media, public Poki preview link, and portal-only QA as pending. Do not call a local verification a portal approval.
+
+### Findings and boundaries
+
+- The source already contains portal first-run direct start. A local preview is not a portal session and should not be used to claim the entry flow is missing.
+- CrazyGames quality guidance recommends direct in-game onboarding that focuses on core controls and can be skipped. Keep the existing amber/green dungeon visual language; make Skip a secondary, keyboard/touch-accessible button.
+- Do not submit, upload, accept agreements, or enter account/personal details during this local implementation and documentation pass.
+
+### Latest progress and remaining verification — 2026-10-13
+
+- Added an accessible `Skip` control to the first-trap tutorial. The choice is persisted as `tutorialSkipped`, kept separate from successful trap placement, measured as a separate Poki event, and releases the tutorial hold.
+- Checked official Poki/CrazyGames submission, media, and QA requirements and wrote the beginner-friendly `PORTAL_SUBMISSION_STEPS_KO.md` guide.
+- `rtk npm run typecheck`, `rtk npm run build`, `rtk python scripts/verify_portal_submission.py`, and `rtk git diff --check` pass. Current `dist/index.html` is 1,648,266 bytes / gzip 457.61 kB. Current ZIP is 28 files, 8,864,593 expanded bytes / 7,673,464 compressed bytes, SHA-256 `45e9f905918108990040ec6b8a973e83d0e0fc42c7008e33349015537e7f4311`.
+- Direct browser verification of Skip remains pending. The existing 4173 profile had saved progression and was not reset; the IAB could not connect to a separate Vite port. Remaining project gates: first-run/Skip smoke in an isolated browser profile, current-build Poki/CrazyGames preview recapture and three authentic Poki screenshots, portal QA, and real mobile/low-memory checks.
+- Six-hour submission recheck: current readiness remains **hold**. Re-read Poki's current submission form and CrazyGames cover/video requirements. Poki requires three actual gameplay screenshots and an accessible playable build or gameplay video link. CrazyGames requires a 2:3 1080p portrait preview; selected 720×1080 media is not confirmed compliant and must be replaced or accepted by the portal's explicit validation.
+- Opened the three current CrazyGames cover assets and checked title/character clarity and visible restrictions; they look clear and have no visible CTA, badges, or border. Asset rights remain unverified.
+- Started a fresh Vite preview on port 4178, but the separate browser returned `ERR_CONNECTION_TIMED_OUT`. Stopped the server and left the existing user tabs/save data untouched. Re-ran `rtk python scripts/verify_portal_submission.py`: local bundle/ZIP/image/video metadata checks pass and the screenshot, current-build media, portrait-resolution, visual-review, and portal/device gates remain explicitly pending. `rtk git diff --check` passes.
+- Fresh `rtk npm run typecheck` passes. Two sandboxed Vite builds failed at `EPERM realpath index.html`; recovered the first attempt's removed `dist` from the already hash-verified ZIP, then ran `rtk npm run build` with workspace permission. The build passed (Vite 7.3.2, 62 modules, 1,648,266-byte single-file HTML), and the artifact verifier confirms the candidate ZIP still matches the rebuilt output and hash.

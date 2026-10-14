@@ -74,7 +74,7 @@ export default function MainMenu({
       style={{ backgroundImage: `url(${bgUrl})`, backgroundSize: "cover", backgroundPosition: "center" }}
     >
       <div className="pointer-events-none fixed inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/85" />
-      <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 py-4 sm:py-6">
+      <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 py-4 pb-32 sm:pt-6 sm:pb-32">
         {/* top bar */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 rounded-full border-2 border-violet-400/60 bg-black/60 px-5 py-1.5 text-xl font-black tabular-nums text-violet-200 shadow-lg">
@@ -163,16 +163,16 @@ export default function MainMenu({
             </span>
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm text-white/75 sm:text-base">
-            A hero is coming to save the princess? This time <b className="text-rose-300">you're the demon</b>.
+            The hero is here to save the princess. <b className="text-rose-300">You're the demon</b> defending the dungeon.
             <br />
-            Lay <b className="text-orange-300">lava, spikes and minions</b> in his path and wipe him out!
+            Place <b className="text-orange-300">lava, spikes and minions</b> before he reaches the gate.
           </p>
         </header>
 
         {/* main grid */}
-        <main className="mt-5 grid flex-1 gap-4 lg:grid-cols-[320px_1fr]">
+        <main className="mt-5 grid min-w-0 flex-1 gap-4 lg:grid-cols-[320px_1fr]">
           {/* boss card */}
-          <section className="rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
+          <section className="min-w-0 rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
             <div className="relative flex justify-center">
               <div className="float-y">
                 <BossPortrait form={save.bossForm} size={200} />
@@ -239,7 +239,7 @@ export default function MainMenu({
           </section>
 
           {/* floor select */}
-          <section className="flex flex-col rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
+          <section className="flex min-w-0 flex-col rounded-3xl border-4 border-[#1b1020] bg-black/55 p-4 shadow-2xl backdrop-blur-sm">
             <h2 className="mb-3 flex items-center gap-2 text-xl font-black text-yellow-200">
               🗺️ Dungeon — pick the hero's floor
             </h2>
@@ -312,14 +312,20 @@ export default function MainMenu({
                 </button>
               </div>
             </section>
-            <button
-              onClick={() => onStart(selected, runMode)}
-              className="start-btn mt-4 w-full rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 via-red-500 to-red-700 py-4 text-2xl font-black tracking-wide shadow-[0_6px_0_#5a0f14] transition hover:brightness-110 active:translate-y-1 active:shadow-[0_2px_0_#5a0f14]"
-            >
-              ⚔️ DEPLOY! — {floor.sub}{runMode === "no-roar-trial" ? " · TRIAL" : ""}
-            </button>
           </section>
         </main>
+
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/80 to-transparent px-4 pt-7"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
+          <button
+            onClick={() => onStart(selected, runMode)}
+            className="start-btn pointer-events-auto mx-auto block w-full max-w-lg rounded-2xl border-4 border-[#1b1020] bg-gradient-to-b from-orange-400 via-red-500 to-red-700 py-3 text-xl font-black tracking-wide shadow-[0_6px_0_#5a0f14] transition hover:brightness-110 active:translate-y-1 active:shadow-[0_2px_0_#5a0f14] sm:py-4 sm:text-2xl"
+          >
+            ⚔️ DEPLOY! — {floor.sub}{runMode === "no-roar-trial" ? " · TRIAL" : ""}
+          </button>
+        </div>
 
         <footer className="mt-4 flex items-center justify-between text-xs text-white/40">
           <span>Click / drag · 1·2·3 pick a trap · {runMode === "no-roar-trial" ? "No Roar Trial seals Space" : "Space to roar"}</span>

@@ -4,7 +4,31 @@ import type { BossFormDef, HeroCharacterDef } from "./types";
 type G = Phaser.GameObjects.Graphics;
 const OUT = 0x1b1020;
 
-type HeroAnimationState = "idle" | "run" | "jump" | "fall" | "hit" | "stun" | "brace" | "land" | "rage" | "death";
+type HeroAnimationState = "idle" | "run" | "jump" | "fall" | "hit" | "stun" | "brace" | "attack" | "land" | "crouch" | "rage" | "death";
+
+export function registerFrameGrid(scene: Phaser.Scene, textureKey: string, source: HTMLImageElement, columns: number, rows: number): boolean {
+  const width = source.naturalWidth || source.width;
+  const height = source.naturalHeight || source.height;
+  if (!Number.isInteger(columns) || !Number.isInteger(rows) || columns < 1 || rows < 1 || width < columns || height < rows) return false;
+
+  if (scene.textures.exists(textureKey)) scene.textures.remove(textureKey);
+  const texture = scene.textures.addImage(textureKey, source);
+  if (!texture) return false;
+
+  for (let index = 0; index < columns * rows; index++) {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const left = Math.floor(column * width / columns);
+    const right = Math.floor((column + 1) * width / columns);
+    const top = Math.floor(row * height / rows);
+    const bottom = Math.floor((row + 1) * height / rows);
+    if (!texture.add(`pose_${index}`, 0, left, top, right - left, bottom - top)) {
+      scene.textures.remove(textureKey);
+      return false;
+    }
+  }
+  return true;
+}
 
 /** Data-driven hero assembled from a shared skeleton and floor identity. */
 export class HeroView {
@@ -24,8 +48,11 @@ export class HeroView {
   private launchT = 0;
   private braceT = 0;
   private landT = 0;
+  private attackT = 0;
   private animationState: HeroAnimationState = "idle";
-  private hdSprite?: Phaser.GameObjects.Image;
+  private hdSprite?: Phaser.GameObjects.Sprite;
+  private hdAnimated = false;
+  private hdFrame = 0;
   private hdBaseScaleX = 1;
   private hdBaseScaleY = 1;
 
@@ -77,9 +104,13 @@ export class HeroView {
     this.flashG.fillEllipse(0, -34, 28, 60);
     this.flashG.setAlpha(0);
 
-    const textureKey = `hero_${def.silhouette}`;
+    const animatedTextureKey = `hero_${def.silhouette}_anim`;
+    const textureKey = scene.textures.exists(animatedTextureKey) ? animatedTextureKey : `hero_${def.silhouette}`;
     if (scene.textures.exists(textureKey)) {
-      this.hdSprite = scene.add.image(0, -42, textureKey);
+      this.hdAnimated = textureKey === animatedTextureKey;
+      this.hdSprite = this.hdAnimated
+        ? scene.add.sprite(0, -42, textureKey, "pose_0")
+        : scene.add.sprite(0, -42, textureKey);
       const targetW = def.silhouette === "warden" ? 92 : def.silhouette === "breaker" ? 96 : 84;
       const targetH = def.silhouette === "warden" ? 96 : def.silhouette === "breaker" ? 96 : 88;
       const frame = this.hdSprite.frame;
@@ -214,13 +245,14 @@ export class HeroView {
     return g;
   }
 
-  update(dt: number, speed: number, onGround: boolean, vy: number, dead: boolean, stunned: boolean, rage: boolean) {
+  update(dt: number, speed: number, onGround: boolean, vy: number, dead: boolean, stunned: boolean, rage: boolean, crouching = false) {
     this.hitT = Math.max(0, this.hitT - dt);
     this.launchT = Math.max(0, this.launchT - dt);
     this.braceT = Math.max(0, this.braceT - dt);
     this.landT = Math.max(0, this.landT - dt);
+    this.attackT = Math.max(0, this.attackT - dt);
     this.phase += dt * (speed > 20 ? speed / 15 : 3.5);
-    this.animationState = dead ? "death" : stunned ? "stun" : this.hitT > 0 ? "hit" : this.braceT > 0 ? "brace" : !onGround ? (vy < 0 ? "jump" : "fall") : this.landT > 0 ? "land" : speed > 20 ? "run" : rage ? "rage" : "idle";
+    this.animationState = dead ? "death" : stunned ? "stun" : this.hitT > 0 ? "hit" : this.attackT > 0 ? "attack" : this.braceT > 0 ? "brace" : crouching && onGround ? "crouch" : !onGround ? (vy < 0 ? "jump" : "fall") : this.landT > 0 ? "land" : speed > 20 ? "run" : rage ? "rage" : "idle";
     this.container.setScale(1);
     if (this.animationState !== "death") this.container.rotation = 0;
     this.torso.y = 0;
@@ -228,6 +260,24 @@ export class HeroView {
     this.rageG.setAlpha(rage ? 0.28 + Math.sin(this.phase * 2) * 0.1 : 0);
 
     if (this.hdSprite) {
+      this.hdSprite.setScale(this.hdBaseScaleX, this.hdBaseScaleY);
+      if (this.hdAnimated) {
+        const frame = this.animationState === "run"
+          ? 2 + Math.floor(this.phase / (Math.PI / 2)) % 4
+          : this.animationState === "jump" ? 6
+          : this.animationState === "fall" ? 7
+          : this.animationState === "land" ? 8
+          : this.animationState === "hit" || this.animationState === "stun" ? 9
+          : this.animationState === "brace" ? 10
+          : this.animationState === "crouch" ? 10
+          : this.animationState === "attack" ? 11
+          : this.animationState === "idle" || this.animationState === "rage" ? (Math.sin(this.phase * 0.5) < 0 ? 1 : 0)
+          : 0;
+        if (frame !== this.hdFrame) {
+          this.hdSprite.setFrame(`pose_${frame}`);
+          this.hdFrame = frame;
+        }
+      }
       if (this.animationState === "death") {
         this.hdSprite.rotation = -1.57;
         this.hdSprite.y = -15;
@@ -248,6 +298,11 @@ export class HeroView {
         this.hdSprite.setTint(0xff6666);
         this.hdSprite.y = -38 + Math.sin(this.phase * 12) * 1.5;
         this.hdSprite.rotation = this.animationState === "hit" ? 0.12 : Math.sin(this.phase * 18) * 0.08;
+      } else if (this.animationState === "crouch") {
+        this.hdSprite.clearTint();
+        this.hdSprite.y = -25;
+        this.hdSprite.rotation = 0.12;
+        this.hdSprite.setScale(this.hdBaseScaleX * 1.08, this.hdBaseScaleY * 0.62);
       } else if (this.animationState === "brace" || this.animationState === "land") {
         this.hdSprite.clearTint();
         this.hdSprite.y = -36;
@@ -306,6 +361,14 @@ export class HeroView {
       this.armB.rotation = 1.3;
       this.torso.y = 2;
       this.container.rotation = -0.12;
+    } else if (this.animationState === "crouch") {
+      this.legF.rotation = 0.62;
+      this.legB.rotation = -0.62;
+      this.armF.rotation = -0.9;
+      this.armB.rotation = -1.1;
+      this.torso.y = 8;
+      this.head.y = 10;
+      this.container.setScale(1.08, 0.68);
     } else if (this.animationState === "land") {
       this.legF.rotation = 0;
       this.legB.rotation = 0;
@@ -334,6 +397,10 @@ export class HeroView {
     this.braceT = 0.3;
   }
 
+  attack() {
+    this.attackT = 0.24;
+  }
+
   launch() {
     this.launchT = 0.1;
   }
@@ -350,6 +417,7 @@ export class HeroView {
 /** Demon boss. Origin = center of the feet, default height ~190px */
 export class BossView {
   readonly container: Phaser.GameObjects.Container;
+  readonly collisionHeight: number;
   private legB: G;
   private legF: G;
   private armB: G;
@@ -358,15 +426,20 @@ export class BossView {
   private wings?: G;
   private flashG: G;
   private aura?: Phaser.GameObjects.Image;
-  private hdSprite?: Phaser.GameObjects.Image;
+  private hdSprite?: Phaser.GameObjects.Sprite;
+  private hdAnimated = false;
+  private hdFrame = 0;
   private phase = 0;
   private roarT = 0;
   private hitT = 0;
+  private trapT = 0;
+  private lastJumpHeight = 0;
   private baseScale: number;
 
   constructor(scene: Phaser.Scene, def: BossFormDef) {
     const p = def.palette;
     this.baseScale = def.scale;
+    this.collisionHeight = def.name === "Last Emperor" ? 220 : def.name === "Abyss Lord" ? 210 : def.name === "Hell King" ? 200 : 190;
     this.container = scene.add.container(0, 0);
     const parts: Phaser.GameObjects.GameObject[] = [];
 
@@ -524,10 +597,12 @@ export class BossView {
       "Last Emperor": "boss_last_emperor",
     };
     const bossTexKey = BOSS_TEX_MAP[def.name] ?? "boss_demon";
-    if (scene.textures.exists(bossTexKey)) {
-      this.hdSprite = scene.add.image(0, -96, bossTexKey);
-      const targetSize = def.name === "Last Emperor" ? 220 : def.name === "Abyss Lord" ? 210 : def.name === "Hell King" ? 200 : 190;
-      this.hdSprite.setDisplaySize(targetSize, targetSize);
+    const animatedBossKey = `${bossTexKey}_anim`;
+    if (scene.textures.exists(animatedBossKey)) {
+      this.hdAnimated = true;
+      const hdSprite = scene.add.sprite(0, -96, animatedBossKey, "pose_0");
+      this.hdSprite = hdSprite;
+      hdSprite.setDisplaySize(this.collisionHeight, this.collisionHeight);
       this.armB.setVisible(false);
       this.legB.setVisible(false);
       body.setVisible(false);
@@ -536,7 +611,20 @@ export class BossView {
       this.armF.setVisible(false);
       this.tail.setVisible(false);
       if (this.wings) this.wings.setVisible(false);
-      parts.push(this.hdSprite);
+      parts.push(hdSprite);
+    } else if (scene.textures.exists(bossTexKey)) {
+      const hdSprite = scene.add.sprite(0, -96, bossTexKey);
+      this.hdSprite = hdSprite;
+      hdSprite.setDisplaySize(this.collisionHeight, this.collisionHeight);
+      this.armB.setVisible(false);
+      this.legB.setVisible(false);
+      body.setVisible(false);
+      this.legF.setVisible(false);
+      head.setVisible(false);
+      this.armF.setVisible(false);
+      this.tail.setVisible(false);
+      if (this.wings) this.wings.setVisible(false);
+      parts.push(hdSprite);
     }
 
     this.flashG = scene.add.graphics();
@@ -579,14 +667,30 @@ export class BossView {
     return g;
   }
 
-  update(dt: number, speed: number) {
+  update(dt: number, speed: number, jumpHeight = 0, crouching = false) {
     this.phase += dt * (speed > 20 ? speed / 22 : 2.2);
     this.roarT = Math.max(0, this.roarT - dt);
     this.hitT = Math.max(0, this.hitT - dt);
+    this.trapT = Math.max(0, this.trapT - dt);
     const s = Math.sin(this.phase);
     const moving = speed > 20;
+    const falling = jumpHeight > 0 && jumpHeight < this.lastJumpHeight;
+    this.lastJumpHeight = jumpHeight;
 
     if (this.hdSprite) {
+      if (this.hdAnimated) {
+        const frame = this.hitT > 0 ? 9
+          : this.roarT > 0 ? 10
+          : this.trapT > 0 ? 11
+          : crouching ? 8
+          : jumpHeight > 0 ? (falling ? 7 : 6)
+          : moving ? 2 + Math.floor(this.phase / (Math.PI / 2)) % 4
+          : Math.sin(this.phase * 0.5) < 0 ? 1 : 0;
+        if (frame !== this.hdFrame) {
+          this.hdSprite.setFrame(`pose_${frame}`);
+          this.hdFrame = frame;
+        }
+      }
       if (this.roarT > 0) {
         this.hdSprite.setTint(0xffbb55);
       } else if (this.hitT > 0) {
@@ -597,17 +701,22 @@ export class BossView {
       this.hdSprite.rotation = moving ? Math.sin(this.phase) * 0.04 : 0;
     }
 
-    this.legF.rotation = moving ? s * 0.7 : Math.sin(this.phase * 0.5) * 0.025;
-    this.legB.rotation = moving ? -s * 0.7 : -Math.sin(this.phase * 0.5) * 0.025;
-    this.armF.rotation = this.roarT > 0 ? -1.8 : moving ? -s * 0.6 - 0.2 : -0.18;
-    this.armB.rotation = this.roarT > 0 ? -2.0 : moving ? s * 0.6 - 0.2 : 0.18;
+    this.legF.rotation = crouching ? 0.5 : jumpHeight > 0 ? 0.45 : moving ? s * 0.7 : Math.sin(this.phase * 0.5) * 0.025;
+    this.legB.rotation = crouching ? -0.5 : jumpHeight > 0 ? -0.45 : moving ? -s * 0.7 : -Math.sin(this.phase * 0.5) * 0.025;
+    this.armF.rotation = this.roarT > 0 ? -1.8 : crouching ? -0.65 : jumpHeight > 0 ? -1.15 : moving ? -s * 0.6 - 0.2 : -0.18;
+    this.armB.rotation = this.roarT > 0 ? -2.0 : crouching ? -0.85 : jumpHeight > 0 ? -1.35 : moving ? s * 0.6 - 0.2 : 0.18;
     this.tail.rotation = Math.sin(this.phase * (moving ? 0.7 : 0.35)) * (moving ? 0.22 : 0.08);
     if (this.wings) this.wings.rotation = this.roarT > 0 ? Math.sin(this.roarT * 22) * 0.25 : Math.sin(this.phase * (moving ? 0.6 : 0.3)) * (moving ? 0.16 : 0.05);
     const bob = moving ? -Math.abs(Math.cos(this.phase)) * 4 : Math.sin(this.phase * 0.5) * 1.5;
-    this.container.y = this.baseY + bob;
+    this.container.y = this.baseY + bob - jumpHeight;
     const roarPulse = this.roarT > 0 ? Math.sin((0.45 - this.roarT) / 0.45 * Math.PI) : 0;
     const hitPulse = this.hitT > 0 ? Math.sin((0.18 - this.hitT) / 0.18 * Math.PI) : 0;
-    this.container.setScale(this.baseScale * (1 + Math.max(roarPulse * 0.08, hitPulse * 0.05)), this.baseScale * (1 - roarPulse * 0.04 + hitPulse * 0.025));
+    const crouchWidth = crouching ? 1.06 : 1;
+    const crouchHeight = crouching ? 0.52 : 1;
+    this.container.setScale(
+      this.baseScale * crouchWidth * (1 + Math.max(roarPulse * 0.08, hitPulse * 0.05)),
+      this.baseScale * crouchHeight * (1 - roarPulse * 0.04 + hitPulse * 0.025),
+    );
     if (this.aura) this.aura.setAlpha(this.roarT > 0 ? 0.8 : 0.55 + Math.sin(this.phase) * 0.08);
   }
 
@@ -624,5 +733,9 @@ export class BossView {
 
   roar() {
     this.roarT = 0.45;
+  }
+
+  summonTrap() {
+    this.trapT = 0.22;
   }
 }

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BossView } from "./characters";
+import { BossView, registerFrameGrid } from "./characters";
 import { HERO_CHARACTERS } from "./config";
 import {
   BOSS_SCREEN_X,
@@ -9,6 +9,7 @@ import {
   HERO_HALF_W,
   HERO_H,
   INTRO_TIME,
+  MINION_H,
   START_GAP,
   W,
 } from "./constants";
@@ -16,6 +17,7 @@ import { TRAP_DEFS } from "./config";
 import { bus } from "./bus";
 import { Fx, FONT } from "./fx";
 import { HeroAIController, type DamageSource } from "./HeroAIController";
+import { getHeroAttackDodgeAction, type DodgeAction } from "./heroAttack";
 import { MUSIC_STEP_SECONDS, sfx, setMusicIntensity, setMusicPaused } from "./sfx";
 import { createTextures } from "./textures";
 import { TrapManager } from "./TrapManager";
@@ -23,6 +25,8 @@ import type { EndReason, HudState, RunConfig, RunResult, TrapType } from "./type
 
 const COMBO_MANA_REFUNDS: Readonly<Record<number, number>> = { 2: 6, 4: 8, 6: 10, 8: 12 };
 const TRAP_MIX_MANA_BONUS = 5;
+const SPIKE_PLACEMENT_COOLDOWN = 2.4;
+const SPIKE_MIN_PLACEMENT_GAP = 90;
 const SEWER_SURGE_INTERVAL = 10;
 const SEWER_SURGE_WARNING = 1.3;
 const SEWER_SURGE_DURATION = 1.35;
@@ -39,6 +43,14 @@ const BASE_COMBO_WINDOW = 3.5;
 const CATHEDRAL_BELL_INTERVAL = MUSIC_STEP_SECONDS * 64;
 const CATHEDRAL_BELL_WARNING = MUSIC_STEP_SECONDS * 8;
 const CATHEDRAL_RESONANCE_DURATION = MUSIC_STEP_SECONDS * 16;
+const BOSS_JUMP_SPEED = 620;
+const BOSS_JUMP_GRAVITY = 1500;
+const BOSS_JUMP_COOLDOWN = 1.1;
+const BOSS_CROUCH_DURATION = 0.8;
+const BOSS_CROUCH_COOLDOWN = 1.25;
+const BOSS_CROUCH_HEIGHT = 0.52;
+const BOSS_CONTACT_DODGE_HEIGHT = HERO_H + 6;
+const JUMP_DODGE_INPUT_GRACE = 0.24;
 
 import type { GameSprites } from "./assets";
 
@@ -57,6 +69,20 @@ interface HeroProjectile {
   type: string;
   alive: boolean;
   color: number;
+  radiusX: number;
+  radiusY: number;
+  enteredBossX: boolean;
+}
+
+interface BossProjectile {
+  g: Phaser.GameObjects.Graphics;
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;
+  vx: number;
+  action: DodgeAction;
+  color: number;
 }
 
 /**
@@ -74,6 +100,8 @@ export class BossScene extends Phaser.Scene {
   private tm!: TrapManager;
   private hero!: HeroAIController;
   private heroProjectiles: HeroProjectile[] = [];
+  private bossProjectiles: BossProjectile[] = [];
+  private nextBossWaveAction: DodgeAction = "jump";
   private bossView!: BossView;
   private bossShadow!: Phaser.GameObjects.Image;
   private heroBar!: Phaser.GameObjects.Graphics;
@@ -96,7 +124,14 @@ export class BossScene extends Phaser.Scene {
   private bossHalfW = 60;
   private bossHp = 100;
   private mana = 100;
+  private spikePlaceCd = 0;
   private roarCd = 0;
+  private bossJumpHeight = 0;
+  private bossJumpVelocity = 0;
+  private jumpDodgeGraceT = 0;
+  private jumpCd = 0;
+  private bossCrouchT = 0;
+  private crouchCd = 0;
   private selected: TrapType = "Lava";
 
   private t = 0;
@@ -104,6 +139,7 @@ export class BossScene extends Phaser.Scene {
   private started = false;
   private ended = false;
   private paused = false;
+  private tutorialHold = false;
   private dragging = false;
   private hasPointer = false;
   private lastPaintCell: number | null = null;
@@ -151,14 +187,24 @@ export class BossScene extends Phaser.Scene {
     this.exitX = this.startX + data.config.floor.length;
     this.bossHp = data.config.boss.maxHp;
     this.mana = data.config.boss.maxMana;
+    this.spikePlaceCd = 0;
     this.roarCd = 0;
+    this.bossJumpHeight = 0;
+    this.bossJumpVelocity = 0;
+    this.jumpDodgeGraceT = 0;
+    this.jumpCd = 0;
+    this.bossCrouchT = 0;
+    this.crouchCd = 0;
+    this.nextBossWaveAction = "jump";
     this.heroProjectiles = [];
+    this.bossProjectiles = [];
     this.selected = "Lava";
     this.t = 0;
     this.introT = 0;
     this.started = false;
     this.ended = false;
     this.paused = false;
+    this.tutorialHold = data.config.tutorialHold === true;
     this.dragging = false;
     this.hasPointer = false;
     this.lastPaintCell = null;
@@ -203,37 +249,64 @@ export class BossScene extends Phaser.Scene {
         if (this.textures.exists("boss_demon")) this.textures.remove("boss_demon");
         this.textures.addImage("boss_demon", this.spritesData.bossDemon);
       }
+      if (this.spritesData.bossDemonAnimation) {
+        registerFrameGrid(this, "boss_demon_anim", this.spritesData.bossDemonAnimation, 4, 3);
+      }
       if (this.spritesData.bossHellKing) {
         if (this.textures.exists("boss_hell_king")) this.textures.remove("boss_hell_king");
         this.textures.addImage("boss_hell_king", this.spritesData.bossHellKing);
+      }
+      if (this.spritesData.bossHellKingAnimation) {
+        registerFrameGrid(this, "boss_hell_king_anim", this.spritesData.bossHellKingAnimation, 4, 3);
       }
       if (this.spritesData.bossAbyssLord) {
         if (this.textures.exists("boss_abyss_lord")) this.textures.remove("boss_abyss_lord");
         this.textures.addImage("boss_abyss_lord", this.spritesData.bossAbyssLord);
       }
+      if (this.spritesData.bossAbyssLordAnimation) {
+        registerFrameGrid(this, "boss_abyss_lord_anim", this.spritesData.bossAbyssLordAnimation, 4, 3);
+      }
       if (this.spritesData.bossLastEmperor) {
         if (this.textures.exists("boss_last_emperor")) this.textures.remove("boss_last_emperor");
         this.textures.addImage("boss_last_emperor", this.spritesData.bossLastEmperor);
+      }
+      if (this.spritesData.bossLastEmperorAnimation) {
+        registerFrameGrid(this, "boss_last_emperor_anim", this.spritesData.bossLastEmperorAnimation, 4, 3);
       }
       if (this.spritesData.heroApprentice) {
         if (this.textures.exists("hero_apprentice")) this.textures.remove("hero_apprentice");
         this.textures.addImage("hero_apprentice", this.spritesData.heroApprentice);
       }
+      if (this.spritesData.heroApprenticeAnimation) {
+        registerFrameGrid(this, "hero_apprentice_anim", this.spritesData.heroApprenticeAnimation, 4, 3);
+      }
       if (this.spritesData.heroScout) {
         if (this.textures.exists("hero_scout")) this.textures.remove("hero_scout");
         this.textures.addImage("hero_scout", this.spritesData.heroScout);
+      }
+      if (this.spritesData.heroScoutAnimation) {
+        registerFrameGrid(this, "hero_scout_anim", this.spritesData.heroScoutAnimation, 4, 3);
       }
       if (this.spritesData.heroWarden) {
         if (this.textures.exists("hero_warden")) this.textures.remove("hero_warden");
         this.textures.addImage("hero_warden", this.spritesData.heroWarden);
       }
+      if (this.spritesData.heroWardenAnimation) {
+        registerFrameGrid(this, "hero_warden_anim", this.spritesData.heroWardenAnimation, 4, 3);
+      }
       if (this.spritesData.heroBreaker) {
         if (this.textures.exists("hero_breaker")) this.textures.remove("hero_breaker");
         this.textures.addImage("hero_breaker", this.spritesData.heroBreaker);
       }
+      if (this.spritesData.heroBreakerAnimation) {
+        registerFrameGrid(this, "hero_breaker_anim", this.spritesData.heroBreakerAnimation, 4, 3);
+      }
       if (this.spritesData.heroDuelist) {
         if (this.textures.exists("hero_duelist")) this.textures.remove("hero_duelist");
         this.textures.addImage("hero_duelist", this.spritesData.heroDuelist);
+      }
+      if (this.spritesData.heroDuelistAnimation) {
+        registerFrameGrid(this, "hero_duelist_anim", this.spritesData.heroDuelistAnimation, 4, 3);
       }
       if (this.spritesData.minionImp) {
         if (this.textures.exists("minion_imp")) this.textures.remove("minion_imp");
@@ -405,16 +478,19 @@ export class BossScene extends Phaser.Scene {
 
     const kb = this.input.keyboard;
     if (kb) {
-      kb.addCapture("SPACE");
       kb.on("keydown-ONE", () => this.select("Lava"));
       kb.on("keydown-TWO", () => this.select("Spike"));
       kb.on("keydown-THREE", () => this.select("Minion"));
-      kb.on("keydown-SPACE", () => this.castRoar());
     }
 
     this.offs.push(bus.on("select", (t: TrapType) => this.select(t)));
     this.offs.push(bus.on("roar", () => this.castRoar()));
+    this.offs.push(bus.on("jump", () => this.jumpBoss()));
+    this.offs.push(bus.on("crouch", () => this.crouchBoss()));
     this.offs.push(bus.on("pause", (v: boolean) => this.setPaused(v)));
+    this.offs.push(bus.on("tutorial-skip", () => {
+      if (this.tutorialHold && !this.ended) this.tutorialHold = false;
+    }));
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanup());
@@ -431,6 +507,8 @@ export class BossScene extends Phaser.Scene {
       p.g.destroy();
     }
     this.heroProjectiles = [];
+    for (const p of this.bossProjectiles) p.g.destroy();
+    this.bossProjectiles = [];
     this.offs.forEach((f) => f());
     this.offs = [];
   }
@@ -453,7 +531,8 @@ export class BossScene extends Phaser.Scene {
   }
 
   private zone(): [number, number] {
-    return [this.hero.x + 30, this.bossX - this.bossHalfW - 24];
+    const minGap = this.selected === "Spike" ? SPIKE_MIN_PLACEMENT_GAP : 30;
+    return [this.hero.x + minGap, this.bossX - this.bossHalfW - 24];
   }
 
   private paintAt(worldX: number, fromClick: boolean) {
@@ -481,9 +560,17 @@ export class BossScene extends Phaser.Scene {
         this.deny(cx, "No mana!");
         return false;
       }
+      if (this.selected === "Spike" && this.spikePlaceCd > 0) {
+        this.deny(cx, `Spikes ready in ${this.spikePlaceCd.toFixed(1)}s`);
+        return false;
+      }
       this.mana -= cost;
       this.tm.place(this.selected, cell);
+      if (this.selected === "Spike") this.spikePlaceCd = SPIKE_PLACEMENT_COOLDOWN;
+      this.tutorialHold = false;
+      this.bossView.summonTrap();
       sfx.place();
+      this.emitHud();
       return true;
     }
     if (fromClick && chk === "zone") this.deny(cx, "Place ahead of the hero!");
@@ -509,6 +596,13 @@ export class BossScene extends Phaser.Scene {
     this.fx.ring(this.bossX - 20, GROUND_Y - 100, 0xffe28a, 10 * power);
     this.fx.burst(this.bossX - 40, GROUND_Y - 60, 26, { colors: [0xffe28a, 0xff6a3d], speed: 420, life: 0.6, gravity: 0, size: 0.5, spreadX: 1.4 });
     this.fx.text(this.bossX - 40, GROUND_Y - 230 * this.cfg.boss.scale, "ROAR!", "#ffb02e", 34);
+    const firstAction = this.nextBossWaveAction;
+    const followupAction = firstAction === "jump" ? "crouch" : "jump";
+    this.spawnBossWave(firstAction);
+    this.time.delayedCall(1.15, () => {
+      if (!this.ended && this.started && this.hero.alive) this.spawnBossWave(followupAction);
+    });
+    this.nextBossWaveAction = followupAction;
     // 영웅 투사체 즉시 패링 파괴!
     for (let i = this.heroProjectiles.length - 1; i >= 0; i--) {
       const p = this.heroProjectiles[i];
@@ -521,16 +615,85 @@ export class BossScene extends Phaser.Scene {
         this.mana = Math.min(this.cfg.boss.maxMana, this.mana + 10);
       }
     }
-    if (this.hero.alive) {
-      this.hero.knockback(1000 * Math.sqrt(power));
-      this.hero.roarT = 2.5;
-      this.hero.applyStun(0.25);
-    }
     this.emitHud();
+  }
+
+  private spawnBossWave(action: DodgeAction) {
+    if (!this.hero.alive || this.hero.targetDistance > 760) return;
+    const color = action === "jump" ? 0xff813d : 0x50c7ff;
+    const radius = 16;
+    const x = this.bossX - this.bossHalfW - radius;
+    const y = action === "jump" ? GROUND_Y - 24 : GROUND_Y - 56;
+    const g = this.add.graphics().setDepth(26);
+    g.fillStyle(color, 0.22).fillCircle(0, 0, radius + 8);
+    g.lineStyle(5, color, 0.95).strokeCircle(0, 0, radius);
+    g.fillStyle(0xfff2ce, 0.95).fillCircle(0, 0, radius * 0.43);
+    g.setPosition(x, y);
+    this.fx.text(this.bossX - 100, y - 38, action === "jump" ? "GROUND WAVE!" : "SKY WAVE!", action === "jump" ? "#ffbd72" : "#8be4ff", 20);
+    this.hero.notifyIncomingBossAttack(action);
+    this.bossProjectiles.push({ g, x, y, radius, damage: 16, vx: -480, action, color });
+    sfx.fire();
+  }
+
+  private jumpBoss() {
+    if (!this.started || this.ended || this.paused || this.jumpCd > 0 || this.bossJumpHeight > 0) return;
+    this.bossCrouchT = 0;
+    this.bossJumpVelocity = BOSS_JUMP_SPEED;
+    this.jumpDodgeGraceT = JUMP_DODGE_INPUT_GRACE;
+    this.jumpCd = BOSS_JUMP_COOLDOWN;
+    this.fx.burst(this.bossX, GROUND_Y - 2, 10, { colors: [0xffd166, 0xffffff], speed: 150, life: 0.35, gravity: 180 });
+    this.fx.ring(this.bossX, GROUND_Y - 10, 0xffd166, 8);
+    this.emitHud();
+  }
+
+  private crouchBoss() {
+    if (!this.started || this.ended || this.paused || this.crouchCd > 0 || this.bossJumpHeight > 0) return;
+    this.bossCrouchT = BOSS_CROUCH_DURATION;
+    this.crouchCd = BOSS_CROUCH_COOLDOWN;
+    this.fx.ring(this.bossX, GROUND_Y - 24, 0x67e8f9, 8);
+    this.emitHud();
+  }
+
+  private updateBossDodge(dt: number) {
+    this.jumpCd = Math.max(0, this.jumpCd - dt);
+    this.crouchCd = Math.max(0, this.crouchCd - dt);
+    this.bossCrouchT = Math.max(0, this.bossCrouchT - dt);
+    this.jumpDodgeGraceT = Math.max(0, this.jumpDodgeGraceT - dt);
+
+    if (this.bossJumpHeight > 0 || this.bossJumpVelocity > 0) {
+      this.bossJumpHeight += this.bossJumpVelocity * dt;
+      this.bossJumpVelocity -= BOSS_JUMP_GRAVITY * dt;
+      if (this.bossJumpHeight <= 0 && this.bossJumpVelocity <= 0) {
+        this.bossJumpHeight = 0;
+        this.bossJumpVelocity = 0;
+      }
+    }
+  }
+
+  private isBossDucking(): boolean {
+    return this.bossCrouchT > 0;
+  }
+
+  private isBossAvoiding(action: DodgeAction): boolean {
+    return action === "jump"
+      ? this.bossJumpHeight >= BOSS_CONTACT_DODGE_HEIGHT || this.jumpDodgeGraceT > 0
+      : this.isBossDucking();
+  }
+
+  private showDodgeSuccess(x: number, y: number, label = "DODGED!") {
+    this.fx.text(x, y - 24, label, "#67e8f9", 24);
+    this.fx.ring(x, y, 0x67e8f9, 10);
+    this.fx.burst(x, y, 8, { colors: [0x67e8f9, 0xffffff], speed: 180, life: 0.3 });
   }
 
   // ---------------- combat events ----------------
   private onHeroDamaged(amount: number, source: DamageSource, x: number, y: number) {
+    if (source === "boss-attack") {
+      this.fx.text(x, y - 18, `-${Math.round(amount)}`, "#ff9b50", 28 + Math.min(amount / 3, 16));
+      this.fx.burst(x, y, 10, { colors: [0xffe28a, 0xff813d, 0xffffff], speed: 220, life: 0.32 });
+      this.cameras.main.shake(90, 0.003);
+      return;
+    }
     this.trapHits++;
     this.fx.text(x, y - 18, `-${Math.round(amount)}`, "#ff5a5a", 28 + Math.min(amount / 3, 16));
     this.cameras.main.shake(110, 0.004);
@@ -594,6 +757,10 @@ export class BossScene extends Phaser.Scene {
       this.fx.text(x + 10, y - 42, "⚔️ MELEE CLEAVE!", "#ff4444", 26);
 
       const dmg = 14;
+      if (this.isBossAvoiding(getHeroAttackDodgeAction(type, true))) {
+        this.showDodgeSuccess(this.bossX - 30, GROUND_Y - 80, "STRIKE DODGED!");
+        return;
+      }
       this.bossHp = Math.max(0, this.bossHp - dmg);
       this.bossView.flash();
       sfx.bossHurt();
@@ -645,13 +812,47 @@ export class BossScene extends Phaser.Scene {
       color = 0xf97316;
       label = "EARTH SHATTER!";
       textColor = "#f97316";
-      // 거대한 용암 화염 충격파
-      g.fillStyle(color, 1);
-      g.fillRoundedRect(-18, -26, 36, 52, 8);
-      g.fillStyle(0xfde047, 1);
-      g.fillRoundedRect(-10, -18, 20, 36, 6);
-      g.lineStyle(3, 0xffffff, 0.9);
-      g.strokeRoundedRect(-18, -26, 36, 52, 8);
+      // 사각형 충격파 대신 전방으로 타오르는 화염 탄환
+      g.fillStyle(color, 0.22);
+      g.fillEllipse(-2, 0, 62, 42);
+      g.fillStyle(0xc2410c, 1);
+      g.beginPath();
+      g.moveTo(-28, 0);
+      g.lineTo(-16, -9);
+      g.lineTo(-19, -21);
+      g.lineTo(-5, -14);
+      g.lineTo(3, -22);
+      g.lineTo(9, -12);
+      g.lineTo(22, -9);
+      g.lineTo(16, 0);
+      g.lineTo(29, 0);
+      g.lineTo(15, 8);
+      g.lineTo(14, 19);
+      g.lineTo(3, 12);
+      g.lineTo(-5, 21);
+      g.lineTo(-10, 12);
+      g.lineTo(-21, 14);
+      g.lineTo(-16, 4);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xfde047, 0.98);
+      g.beginPath();
+      g.moveTo(-16, 0);
+      g.lineTo(-7, -6);
+      g.lineTo(-8, -13);
+      g.lineTo(0, -8);
+      g.lineTo(7, -15);
+      g.lineTo(10, -7);
+      g.lineTo(20, -3);
+      g.lineTo(12, 2);
+      g.lineTo(8, 11);
+      g.lineTo(1, 6);
+      g.lineTo(-6, 12);
+      g.lineTo(-8, 5);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xfffbeb, 0.96);
+      g.fillEllipse(7, 0, 13, 9);
     } else if (type === "breaker") {
       vx = 480;
       damage = 20;
@@ -696,12 +897,19 @@ export class BossScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    g.setPosition(x, y);
-    this.fx.text(x, y - 30, label, textColor, 21);
-    this.fx.burst(x, y, 8, { colors: [color, 0xffffff], speed: 160, life: 0.3 });
+    const dodge = getHeroAttackDodgeAction(type, false);
+    const radiusX = type === "duelist" ? 34 : type === "warden" ? 22 : 20;
+    const radiusY = type === "warden" || type === "breaker" ? 24 : type === "duelist" ? 8 : 14;
+    const crouchedBossHeight = this.bossView.collisionHeight * this.cfg.boss.scale * BOSS_CROUCH_HEIGHT;
+    const projectileY = dodge === "jump" ? GROUND_Y - 36 : GROUND_Y - crouchedBossHeight - radiusY - 14;
+    g.setPosition(x, projectileY);
+    this.fx.text(x, projectileY - 30, label, textColor, 21);
+    this.fx.text(x, projectileY - 56, dodge === "jump" ? "LOW SHOT · JUMP!" : "HIGH SHOT · CROUCH!", dodge === "jump" ? "#fde047" : "#67e8f9", 16);
+    this.fx.ring(x, y, color, 5);
+    this.fx.burst(x, projectileY, 8, { colors: [color, 0xffffff], speed: 160, life: 0.3 });
     sfx.fire();
 
-    this.heroProjectiles.push({ g, x, y, vx, damage, type, alive: true, color });
+    this.heroProjectiles.push({ g, x, y: projectileY, vx, damage, type, alive: true, color, radiusX, radiusY, enteredBossX: false });
   }
 
   private updateHeroProjectiles(dt: number) {
@@ -722,17 +930,20 @@ export class BossScene extends Phaser.Scene {
 
       // 1. 미니언 고기방패 방어
       let blocked = false;
-      for (const m of this.tm.traps) {
-        if (m.type === "Minion" && m.state !== "dead") {
-          const mx = m.cell * CELL + CELL / 2;
-          if (Math.abs(p.x - mx) < 32) {
-            m.state = "dead";
-            m.sprite.destroy();
-            blocked = true;
-            this.fx.text(mx, GROUND_Y - 50, "MINION BLOCKED!", "#93c5fd", 22);
-            this.fx.burst(mx, GROUND_Y - 30, 12, { colors: [0xf43f5e, 0xffffff], speed: 220, life: 0.35 });
-            sfx.stomp();
-            break;
+      const overlapsMinionHeight = p.y + p.radiusY >= GROUND_Y - MINION_H && p.y - p.radiusY <= GROUND_Y;
+      if (overlapsMinionHeight) {
+        for (const m of this.tm.traps) {
+          if (m.type === "Minion" && m.state !== "dead") {
+            const mx = m.cell * CELL + CELL / 2;
+            if (Math.abs(p.x - mx) < 32) {
+              m.state = "dead";
+              m.sprite.destroy();
+              blocked = true;
+              this.fx.text(mx, GROUND_Y - 50, "MINION BLOCKED!", "#93c5fd", 22);
+              this.fx.burst(mx, GROUND_Y - 30, 12, { colors: [0xf43f5e, 0xffffff], speed: 220, life: 0.35 });
+              sfx.stomp();
+              break;
+            }
           }
         }
       }
@@ -743,8 +954,25 @@ export class BossScene extends Phaser.Scene {
         continue;
       }
 
-      // 3. 보스 본체 피격
-      if (p.x >= this.bossX - this.bossHalfW) {
+      // Check both horizontal and vertical overlap against the boss's current dodge pose.
+      const overlapsBossX = p.x + p.radiusX >= this.bossX - this.bossHalfW
+        && p.x - p.radiusX <= this.bossX + this.bossHalfW;
+      if (overlapsBossX) {
+        p.enteredBossX = true;
+        const requiredDodge = getHeroAttackDodgeAction(p.type, false);
+        if (this.isBossAvoiding(requiredDodge)) {
+          this.showDodgeSuccess(this.bossX, p.y, requiredDodge === "jump" ? "JUMP DODGE!" : "CROUCH DODGE!");
+          p.alive = false;
+          p.g.destroy();
+          this.heroProjectiles.splice(i, 1);
+          continue;
+        }
+        const bossBottom = GROUND_Y - this.bossJumpHeight;
+        const bossHeight = this.bossView.collisionHeight * this.cfg.boss.scale * (this.isBossDucking() ? BOSS_CROUCH_HEIGHT : 1);
+        const bossTop = bossBottom - bossHeight;
+        const overlapsBossY = p.y + p.radiusY >= bossTop && p.y - p.radiusY <= bossBottom;
+        if (!overlapsBossY) continue;
+
         p.alive = false;
         p.g.destroy();
         this.heroProjectiles.splice(i, 1);
@@ -761,11 +989,55 @@ export class BossScene extends Phaser.Scene {
         continue;
       }
 
+      if (p.enteredBossX && p.x - p.radiusX > this.bossX + this.bossHalfW) {
+        this.showDodgeSuccess(this.bossX, p.y, "DODGED!");
+        p.alive = false;
+        p.g.destroy();
+        this.heroProjectiles.splice(i, 1);
+        continue;
+      }
+
       // 4. 화면 초과 소멸
       if (p.x > this.bossX + 300) {
         p.alive = false;
         p.g.destroy();
         this.heroProjectiles.splice(i, 1);
+      }
+    }
+  }
+
+  private updateBossProjectiles(dt: number) {
+    for (let i = this.bossProjectiles.length - 1; i >= 0; i--) {
+      const p = this.bossProjectiles[i];
+      p.x += p.vx * dt;
+      p.g.setPosition(p.x, p.y);
+      if (Math.random() < 0.45) {
+        this.fx.burst(p.x + 8, p.y, 1, { colors: [p.color, 0xffffff], speed: 26, life: 0.18, size: 0.25 });
+      }
+
+      const overlapsHeroX = p.x + p.radius >= this.hero.x - HERO_HALF_W
+        && p.x - p.radius <= this.hero.x + HERO_HALF_W;
+      if (overlapsHeroX) {
+        const heroHeight = this.hero.isCrouching ? HERO_H * 0.56 : HERO_H;
+        const heroTop = this.hero.y - heroHeight;
+        const overlapsHeroY = p.y + p.radius >= heroTop && p.y - p.radius <= this.hero.y;
+        if (overlapsHeroY) {
+          const dealt = this.hero.takeDamage(p.damage, "boss-attack", p.x, p.y);
+          if (dealt > 0) {
+            this.hero.roarT = Math.max(this.hero.roarT, 0.55);
+            this.hero.applyStun(0.22);
+          }
+        } else {
+          this.showDodgeSuccess(this.hero.x, p.y, "HE READ YOUR MOVE!");
+        }
+        p.g.destroy();
+        this.bossProjectiles.splice(i, 1);
+        continue;
+      }
+
+      if (p.x + p.radius < this.hero.x - HERO_HALF_W || p.x < this.cameras.main.scrollX - 80) {
+        p.g.destroy();
+        this.bossProjectiles.splice(i, 1);
       }
     }
   }
@@ -836,6 +1108,9 @@ export class BossScene extends Phaser.Scene {
       gap: this.bossX - this.bossHalfW - h.x,
       roarCd: this.roarCd,
       roarMax: c.boss.roarCooldown,
+      jumpCd: this.jumpCd,
+      crouchCd: this.crouchCd,
+      spikeCd: this.spikePlaceCd,
       selected: this.selected,
       time: Math.max(0, this.t - INTRO_TIME),
       started: this.started,
@@ -849,7 +1124,7 @@ export class BossScene extends Phaser.Scene {
   // ---------------- frame update ----------------
   update(_time: number, deltaMs: number) {
     if (this.paused) return;
-    const dt = Math.min(deltaMs / 1000, 1 / 30);
+    const dt = this.tutorialHold ? 0 : Math.min(deltaMs / 1000, 1 / 30);
     const cam = this.cameras.main;
     // Keep the run clock frozen while delayed result UI and death effects finish.
     if (!this.ended) this.t += dt;
@@ -876,19 +1151,22 @@ export class BossScene extends Phaser.Scene {
 
     if (!this.ended) {
       if (active) {
+        this.updateBossDodge(dt);
         this.updateSewerSurge(dt);
         this.updateForgeDrop(dt);
         this.updateAbyssEcho(dt);
         this.updateCathedralBell(dt);
         this.bossX += boss.speed * dt;
         this.mana = Math.min(boss.maxMana, this.mana + boss.manaRegen * dt);
+        this.spikePlaceCd = Math.max(0, this.spikePlaceCd - dt);
         this.roarCd = Math.max(0, this.roarCd - dt);
       }
       this.hero.update(dt, this.tm, this.bossX, active);
       this.tm.update(dt, this.hero, cam.scrollX);
       if (active) this.updateHeroProjectiles(dt);
+      if (active) this.updateBossProjectiles(dt);
 
-      if (active && this.hero.alive && this.hero.contactCd <= 0 && this.hero.x + HERO_HALF_W >= this.bossX - this.bossHalfW) {
+      if (active && this.hero.alive && this.hero.contactCd <= 0 && this.bossJumpHeight < BOSS_CONTACT_DODGE_HEIGHT && this.hero.x + HERO_HALF_W >= this.bossX - this.bossHalfW) {
         this.bossHit();
       }
       if (!this.ended && !this.hero.alive) this.finish("hero-defeated");
@@ -903,8 +1181,12 @@ export class BossScene extends Phaser.Scene {
 
     // boss / camera
     this.bossView.container.x = this.bossX;
-    this.bossView.update(dt, active ? boss.speed : 0);
-    this.bossShadow.setPosition(this.bossX - 6, GROUND_Y + 4);
+    this.bossView.update(dt, active ? boss.speed : 0, this.bossJumpHeight, this.isBossDucking());
+    const shadowScale = Math.max(0.4, 1 - this.bossJumpHeight / 280);
+    this.bossShadow
+      .setPosition(this.bossX - 6, GROUND_Y + 4)
+      .setScale(this.cfg.boss.scale * 1.6 * shadowScale, this.cfg.boss.scale * 1.1 * shadowScale)
+      .setAlpha(0.8 * shadowScale);
     cam.scrollX = this.bossX - BOSS_SCREEN_X;
 
     this.updateBackground(cam.scrollX);
@@ -1172,7 +1454,7 @@ export class BossScene extends Phaser.Scene {
     const c0 = Math.ceil(minX / CELL);
     const c1 = Math.floor(maxX / CELL);
     if (c1 > c0) {
-      g.fillStyle(0x6cff9a, 0.06);
+      g.fillStyle(0x6cff9a, this.tutorialHold ? 0.2 : 0.06);
       g.fillRect(c0 * CELL, GROUND_Y - 56, (c1 - c0) * CELL, 56);
       for (let c = c0; c <= c1; c++) {
         if (!this.tm.isRuneCell(c)) continue;
@@ -1186,7 +1468,7 @@ export class BossScene extends Phaser.Scene {
       }
       g.lineStyle(1, 0xbfffd0, 0.16);
       for (let c = c0; c <= c1; c++) g.lineBetween(c * CELL, GROUND_Y - 56, c * CELL, GROUND_Y + 2);
-      g.lineStyle(2, 0xbfffd0, 0.3);
+      g.lineStyle(2, 0xbfffd0, this.tutorialHold ? 0.62 : 0.3);
       g.lineBetween(c0 * CELL, GROUND_Y - 56, c1 * CELL, GROUND_Y - 56);
     }
     if (this.hasPointer) {
@@ -1195,7 +1477,8 @@ export class BossScene extends Phaser.Scene {
       const cell = this.tm.cellAt(p.x + cam.scrollX);
       const chk = this.tm.canPlace(this.selected, cell, minX, maxX);
       const afford = this.mana >= this.cfg.traps[this.selected].cost;
-      const ok = chk === "ok" && afford;
+      const cooldownReady = this.selected !== "Spike" || this.spikePlaceCd <= 0;
+      const ok = chk === "ok" && afford && cooldownReady;
       const color = ok ? 0x6cff9a : chk === "ok" ? 0xffd34d : 0xff5a5a;
       g.fillStyle(color, 0.28);
       g.fillRect(cell * CELL, GROUND_Y - 56, CELL, 56);
@@ -1206,7 +1489,9 @@ export class BossScene extends Phaser.Scene {
         .setPosition(cell * CELL + CELL / 2, GROUND_Y - 78)
         .setAlpha(ok ? 1 : 0.45)
         .setVisible(true);
-      if (ok) {
+      if (chk === "ok" && !cooldownReady) {
+        this.forecastLabel.setText(`SPIKES READY IN ${this.spikePlaceCd.toFixed(1)}s`).setPosition(cell * CELL + CELL / 2, GROUND_Y - 112).setVisible(true);
+      } else if (ok) {
         const forecast = this.hero.previewTrap(this.selected, cell, this.cfg.traps[this.selected], this.tm);
         const baseDamage = this.cfg.traps[this.selected].damage;
         const boostedDamage = this.tm.placementStats(this.selected, cell).damage;

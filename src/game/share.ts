@@ -10,6 +10,24 @@ export interface BossChallenge {
   trapsPlaced: number;
 }
 
+function challengeParams(challenge: BossChallenge): Record<string, string> {
+  return {
+    type: 'boss_challenge',
+    floor: String(challenge.floorIndex),
+    mode: challenge.mode,
+    won: challenge.won ? '1' : '0',
+    hits: String(challenge.trapHits),
+    damage: String(Math.round(challenge.heroDamagePct * 100)),
+    traps: String(challenge.trapsPlaced),
+  };
+}
+
+export function createBossShareUrlFallback(challenge: BossChallenge): string {
+  const url = new URL(window.location.href);
+  Object.entries(challengeParams(challenge)).forEach(([key, value]) => url.searchParams.set(key, value));
+  return url.toString();
+}
+
 function param(key: string): string | null {
   const params = new URLSearchParams(window.location.search);
   const sdk = window.PokiSDK as unknown as { getURLParam?: (name: string) => string | null } | undefined;
@@ -30,15 +48,7 @@ export function readBossChallenge(): BossChallenge | null {
 }
 
 export async function createBossShareUrl(challenge: BossChallenge): Promise<string> {
-  const params = {
-    type: 'boss_challenge',
-    floor: String(challenge.floorIndex),
-    mode: challenge.mode,
-    won: challenge.won ? '1' : '0',
-    hits: String(challenge.trapHits),
-    damage: String(Math.round(challenge.heroDamagePct * 100)),
-    traps: String(challenge.trapsPlaced),
-  };
+  const params = challengeParams(challenge);
   const sdk = window.PokiSDK as unknown as { shareableURL?: (values: Record<string, string>) => Promise<string> } | undefined;
   try {
     const url = await sdk?.shareableURL?.(params);
@@ -46,7 +56,5 @@ export async function createBossShareUrl(challenge: BossChallenge): Promise<stri
   } catch {
     // The regular URL still carries the challenge when Poki is unavailable.
   }
-  const url = new URL(window.location.href);
-  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-  return url.toString();
+  return createBossShareUrlFallback(challenge);
 }

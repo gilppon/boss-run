@@ -14,5 +14,7 @@ export const MINION_H = 44;
 export const SPIKE_H = 38;
 export const HANG_OFFSET = 250; // height a drop spike hangs at
 export const SPIKE_TRIGGER_DIST = 175;
+export const SPIKE_FALL_ACCELERATION = 2600;
+export const SPIKE_REACTION_HOLD = Math.sqrt((2 * HANG_OFFSET) / SPIKE_FALL_ACCELERATION) + 0.08;
 
 export const INTRO_TIME = 1.4; // countdown time (seconds)

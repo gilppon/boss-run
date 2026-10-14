@@ -7,9 +7,11 @@ let musicVolume = 1;
 let effectsVolume = 1;
 // Separate from `enabled` so unmuting after an ad never un-mutes a player-muted game.
 let adMuted = false;
+// Portal-level mute takes priority over the player's in-game audio setting.
+let sdkMuted = false;
 
 function getCtx(): AudioContext | null {
-  if (!enabled || adMuted) return null;
+  if (!enabled || adMuted || sdkMuted) return null;
   try {
     if (!ctx) {
       const Ctor =
@@ -33,7 +35,7 @@ function getCtx(): AudioContext | null {
 
 function applyGain() {
   if (!master || !ctx) return;
-  const target = enabled && !adMuted ? 1 : 0;
+  const target = enabled && !adMuted && !sdkMuted ? 1 : 0;
   const now = ctx.currentTime;
   master.gain.cancelScheduledValues(now);
   master.gain.setTargetAtTime(target, now, 0.012);
@@ -163,7 +165,7 @@ const MUSIC_THEMES: readonly MusicTheme[] = [
 let musicThemeIndex = 0;
 
 function duckMusic() {
-  if (!ctx || !musicDuckGain || musicPaused || !enabled || adMuted || document.hidden) return;
+  if (!ctx || !musicDuckGain || musicPaused || !enabled || adMuted || sdkMuted || document.hidden) return;
   const now = ctx.currentTime;
   const gain = musicDuckGain.gain;
   gain.cancelScheduledValues(now);
@@ -277,7 +279,7 @@ function musicTone(freq: number, dur: number, type: OscillatorType, vol: number,
 function musicTick() {
   // Never backfill missed notes; resume on the next live beat after any interruption.
   if (!ctx) return;
-  if (!enabled || adMuted || musicPaused || document.hidden) {
+  if (!enabled || adMuted || sdkMuted || musicPaused || document.hidden) {
     musicNextTime = ctx.currentTime + MUSIC_STEP_SECONDS;
     return;
   }
@@ -407,6 +409,11 @@ export const sfx = {
   /** Portal requirement: silence all audio while an ad is playing. */
   setAdMuted(m: boolean) {
     adMuted = m;
+    applyGain();
+  },
+  /** CrazyGames SDK setting; it overrides the in-game audio toggle. */
+  setSdkMuted(m: boolean) {
+    sdkMuted = m;
     applyGain();
   },
   unlock() {

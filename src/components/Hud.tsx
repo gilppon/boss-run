@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HERO_CHARACTERS, TRAP_DEFS } from "../game/config";
 import { bus } from "../game/bus";
+import { W } from "../game/constants";
 import type { HudState, RunConfig } from "../game/types";
 import { TRAP_TYPES } from "../game/types";
 import BossPortrait from "./BossPortrait";
@@ -14,6 +15,8 @@ interface Props {
   ended: boolean;
   soundOn: boolean;
   showHint: boolean;
+  onTutorialStepComplete: () => void;
+  onTutorialSkip: () => void;
   onPause: () => void;
   onToggleSound: () => void;
 }
@@ -48,7 +51,7 @@ function Bar({
   );
 }
 
-export default function Hud({ config, hud, uiScale, paused, ended, soundOn, showHint, onPause, onToggleSound }: Props) {
+export default function Hud({ config, hud, uiScale, paused, ended, soundOn, showHint, onTutorialStepComplete, onTutorialSkip, onPause, onToggleSound }: Props) {
   // First-run mission: detect 1 trap placed → celebrate for 5s (hooks before the early return)
   const placed = hud?.trapsPlaced ?? 0;
   const didRef = useRef(false);
@@ -56,11 +59,12 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
   useEffect(() => {
     if (placed >= 1 && !didRef.current) {
       didRef.current = true;
+      onTutorialStepComplete();
       setCelebrate(true);
       const id = window.setTimeout(() => setCelebrate(false), 5000);
       return () => window.clearTimeout(id);
     }
-  }, [placed]);
+  }, [placed, onTutorialStepComplete]);
 
   if (!hud) return null;
   const readableFont = (designPx: number, minScreenPx: number) =>
@@ -69,6 +73,12 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
   const roarReady = hud.roarCd <= 0;
   const roarSealed = config.mode === "no-roar-trial";
   const roarPct = hud.roarMax > 0 ? 1 - hud.roarCd / hud.roarMax : 1;
+  const jumpReady = hud.jumpCd <= 0;
+  const crouchReady = hud.crouchCd <= 0;
+  const dodgeButtonStyle = {
+    width: Math.max(92, 84 / Math.max(uiScale, 0.25)),
+    height: Math.max(72, 72 / Math.max(uiScale, 0.25)),
+  };
   const heroPct = hud.heroHp / hud.heroMaxHp;
   const comboTier = hud.combo >= 8 ? 3 : hud.combo >= 6 ? 2 : hud.combo >= 4 ? 1 : 0;
   const comboLabel = ["STREAK", "HOT STREAK", "DEMONIC", "UNSTOPPABLE"][comboTier];
@@ -108,7 +118,7 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
             <span className="shrink-0 whitespace-nowrap tabular-nums text-white/90" style={{ fontSize: readableFont(14, 10) }}>
               {Math.ceil(hud.heroHp)} / {hud.heroMaxHp}
             </span>
-            <span className="min-w-0 text-right text-lg font-black leading-tight text-emerald-300 drop-shadow" style={{ fontSize: readableFont(18, 12) }}>{hud.heroName}</span>
+            <span className="min-w-0 truncate whitespace-nowrap text-right text-lg font-black leading-tight text-emerald-300 drop-shadow" style={{ fontSize: readableFont(18, 12) }}>{hud.heroName}</span>
           </div>
           <div className="-mt-1 mb-1 text-right text-[10px] font-bold tracking-wide text-emerald-100/55" style={{ fontSize: readableFont(10, 8) }}>{HERO_CHARACTERS[config.floor.heroId].title}</div>
           <Bar
@@ -195,8 +205,9 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
       <div className="absolute bottom-5 left-5 w-[300px]">
         <div className="mb-1 flex items-baseline justify-between text-sm font-bold">
           <span className="text-lg font-black text-violet-300">💜 Mana</span>
-          <span className="tabular-nums">
-            {Math.floor(hud.mana)} / {hud.maxMana}
+          <span className="tabular-nums" aria-label={`${Math.floor(hud.mana)} current mana, ${hud.maxMana} maximum mana`}>
+            <span className="font-black text-violet-100">{Math.floor(hud.mana)}</span>
+            <span className="ml-1 text-[10px] font-bold text-white/60">/ MAX {hud.maxMana}</span>
           </span>
         </div>
         <Bar pct={hud.mana / hud.maxMana} from="#c084fc" to="#6366f1" height={22} />
@@ -210,10 +221,13 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
           const locked = !st.unlocked;
           const sel = hud.selected === t;
           const afford = hud.mana >= st.cost;
+          const recharging = t === "Spike" && hud.spikeCd > 0;
           return (
             <button
               key={t}
               tabIndex={-1}
+              aria-pressed={sel}
+              aria-label={`${d.short} trap, costs ${st.cost} mana${recharging ? `, ready in ${hud.spikeCd.toFixed(1)} seconds` : ""}`}
               disabled={locked}
               onClick={(e) => {
                 e.currentTarget.blur();
@@ -225,6 +239,7 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
                 sel
                   ? "border-yellow-300 bg-gradient-to-b from-[#5c2448] to-[#2e1028] shadow-[0_6px_0_#caa124,0_0_28px_rgba(255,214,80,0.6)]"
                   : "border-[#2b172a] bg-gradient-to-b from-[#241320] to-[#140b12] hover:brightness-110",
+                showHint && placed < 1 && sel && !locked ? "ring-4 ring-yellow-200/70 animate-pulse" : "",
                 locked ? "opacity-45 grayscale pointer-events-none" : "cursor-pointer",
               ].join(" ")}
             >
@@ -241,8 +256,8 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
                 {d.hotkey}
               </div>
               {!locked && (
-                <div className="mt-1 text-[11px] font-bold text-white/70">
-                  Lv.{st.level} · DMG {st.damage}
+                <div className={`mt-1 text-[11px] font-bold ${recharging ? "text-amber-200" : "text-white/70"}`}>
+                  {recharging ? `READY IN ${hud.spikeCd.toFixed(1)}s` : `Lv.${st.level} · DMG ${st.damage}`}
                 </div>
               )}
             </button>
@@ -250,10 +265,51 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
         })}
       </div>
 
+      {/* bottom-right: timed dodge controls */}
+      <div className="pointer-events-auto absolute bottom-[112px] right-5 flex gap-2">
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Jump to dodge low shots and melee attacks. W or Up Arrow."
+          title="Jump · W / ↑ · Avoid low shots and melee attacks"
+          disabled={!jumpReady}
+          onClick={(e) => {
+            e.currentTarget.blur();
+            bus.emit("jump");
+          }}
+          className={`flex flex-col items-center justify-center rounded-xl border-2 font-black leading-tight shadow-[0_4px_0_#153238,0_8px_18px_rgba(0,0,0,0.55)] active:translate-y-1 ${jumpReady ? "border-cyan-200 bg-gradient-to-b from-cyan-500 to-blue-700 text-white" : "border-slate-700 bg-slate-900/90 text-white/50"}`}
+          style={dodgeButtonStyle}
+        >
+          <span className="text-2xl">↑</span>
+          <span className="text-sm">JUMP</span>
+          <span className="text-[10px]">{jumpReady ? "W / ↑" : `${hud.jumpCd.toFixed(1)}s`}</span>
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Crouch to dodge high shots. S or Down Arrow."
+          title="Crouch · S / ↓ · Avoid high shots"
+          disabled={!crouchReady}
+          onClick={(e) => {
+            e.currentTarget.blur();
+            bus.emit("crouch");
+          }}
+          className={`flex flex-col items-center justify-center rounded-xl border-2 font-black leading-tight shadow-[0_4px_0_#153238,0_8px_18px_rgba(0,0,0,0.55)] active:translate-y-1 ${crouchReady ? "border-cyan-200 bg-gradient-to-b from-teal-500 to-emerald-800 text-white" : "border-slate-700 bg-slate-900/90 text-white/50"}`}
+          style={dodgeButtonStyle}
+        >
+          <span className="text-2xl">↓</span>
+          <span className="text-sm">CROUCH</span>
+          <span className="text-[10px]">{crouchReady ? "S / ↓" : `${hud.crouchCd.toFixed(1)}s`}</span>
+        </button>
+      </div>
+
       {/* bottom-right: roar */}
       <div className="pointer-events-auto absolute bottom-4 right-5">
         <button
           tabIndex={-1}
+          aria-keyshortcuts="Space"
+          aria-label="Roar wave. Alternates a low attack the hero must jump over and a high attack the hero must crouch under."
+          title="Roar wave · the hero jumps over low shots and crouches under high shots"
           onClick={(e) => {
             e.currentTarget.blur();
             bus.emit("roar");
@@ -273,27 +329,48 @@ export default function Hud({ config, hud, uiScale, paused, ended, soundOn, show
               style={{ height: `${roarPct * 100}%` }}
             />
           )}
-          <span className="relative text-3xl leading-none">🗣️</span>
-          <span className="relative text-lg">{roarSealed ? "ROAR SEALED" : "ROAR [Space]"}</span>
-          <span className="relative text-xs font-bold text-white/80">
-            {roarSealed ? "TRIAL · +25% REWARDS" : roarReady ? "SEND HIM PACKING!" : `${hud.roarCd.toFixed(1)}s`}
+          <span className="relative whitespace-nowrap font-black leading-none" style={{ fontSize: readableFont(16, 12) }}>
+            {roarSealed ? "ROAR SEALED" : "ROAR WAVE"}
+          </span>
+          <span className="relative mt-1 whitespace-nowrap rounded bg-black/25 px-2 py-0.5 font-black leading-none text-white/90" style={{ fontSize: readableFont(11, 10) }}>
+            {roarSealed ? "TRIAL" : "SPACE"}
+          </span>
+          <span className="relative whitespace-nowrap font-bold leading-none text-white/80" style={{ fontSize: readableFont(10, 9) }}>
+            {roarSealed ? "TRIAL · +25% REWARDS" : roarReady ? "LOW ↔ HIGH" : `${hud.roarCd.toFixed(1)}s`}
           </span>
         </button>
       </div>
 
       {showHint && !ended && placed < 1 && (
-        <div className="absolute bottom-[132px] left-1/2 -translate-x-1/2 rounded-2xl border-2 border-yellow-300/70 bg-black/70 px-6 py-3 text-center text-lg font-bold text-yellow-100 shadow-xl">
-          🎯 <b className="text-yellow-300">MISSION</b> · <b className="text-emerald-300">click or drag</b> in the green zone ahead of
-          the hero to place a trap!
-          <br />
-          <span className="text-sm text-white/70">
-            The wider the lava, the higher he jumps · Get close? Press <b>Space</b> to roar
-          </span>
-        </div>
+        <section
+          aria-label="First-trap tutorial"
+          className="absolute left-1/2 top-[160px] -translate-x-1/2 rounded-2xl border-2 border-yellow-300/80 bg-[#160b12]/90 px-6 py-3 text-center font-bold text-yellow-100 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_0_24px_rgba(250,204,21,0.18)] backdrop-blur-sm"
+          style={{ maxWidth: Math.min(W * 0.9, 560 / Math.max(uiScale, 0.25)), fontSize: readableFont(18, 14) }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-black tracking-[0.28em] text-yellow-300/80" style={{ fontSize: readableFont(10, 11) }}>FIRST MOVE · 1/1</div>
+            <button
+              type="button"
+              aria-label="Skip first-trap tutorial"
+              onClick={onTutorialSkip}
+              className="pointer-events-auto rounded-full border border-yellow-100/35 bg-black/35 px-3 py-1 text-xs font-black text-yellow-100/80 transition hover:border-yellow-100/70 hover:bg-black/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-200"
+              style={{
+                fontSize: readableFont(12, 12),
+                minHeight: `${44 / Math.max(uiScale, 0.25)}px`,
+                minWidth: `${44 / Math.max(uiScale, 0.25)}px`,
+              }}
+            >
+              Skip
+            </button>
+          </div>
+          <p role="status" aria-live="polite" className="mt-1">
+            Place your first trap in the green zone to start the chase and defend your dungeon.
+          </p>
+        </section>
       )}
       {showHint && !ended && celebrate && (
         <div className="absolute bottom-[132px] left-1/2 -translate-x-1/2 rounded-2xl border-2 border-emerald-300/70 bg-black/70 px-6 py-3 text-center text-lg font-bold text-emerald-100 shadow-xl">
-          ✅ Mission complete! Now block him all the way!
+          ✅ Trap set! Let's see if the hero can outsmart you.
         </div>
       )}
     </div>

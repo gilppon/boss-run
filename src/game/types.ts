@@ -108,6 +108,7 @@ export interface RunConfig {
   boss: BossStats;
   traps: Record<TrapType, TrapStats>;
   heroHpScale?: number; // revive: hero HP multiplier (default 1)
+  tutorialHold?: boolean; // first-run setup: hold enemy movement until the first trap is placed
   practiceOnly?: boolean; // locked-floor challenge: no reward or campaign progress
 }
 
@@ -146,6 +147,9 @@ export interface HudState {
   gap: number;
   roarCd: number;
   roarMax: number;
+  jumpCd: number;
+  crouchCd: number;
+  spikeCd: number;
   selected: TrapType;
   time: number;
   started: boolean;
@@ -168,6 +172,7 @@ export interface SaveData {
   musicVolume: number;
   sfxVolume: number;
   seenTutorial: boolean;
+  tutorialSkipped: boolean;
   lowFx: boolean; // low-spec fx mode
   lastDaily: number; // timestamp of the last daily reward claim
   dailyStreak: number; // consecutive days checked in (1~7 cycle)

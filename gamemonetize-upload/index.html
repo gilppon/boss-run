@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1b1020" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta
+      name="description"
+      content="Reverse Boss Runner - you're the demon this time. Lay lava, spikes and minions in the hero's path, roar him down, and rebuild your castle."
+    />
+    <title>Reverse Boss Runner - GameMonetize Release</title>
+
+    <!-- ============================================================== -->
+    <!-- GameMonetize Official SDK Integration                          -->
+    <!-- [안내] 아래 'your_game_id_here' 자리에                           -->
+    <!-- GameMonetize 대시보드(Game Management)에서 발급받은 Game ID를 넣으세요! -->
+    <!-- ============================================================== -->
+    <script type="text/javascript">
+      window.SDK_OPTIONS = {
+        gameId: "your_game_id_here",
+        onEvent: function (a) {
+          switch (a.name) {
+            case "SDK_GAME_PAUSE":
+              // GameMonetize: 광고 시작 시 오디오 음소거 및 게임 일시 정지
+              if (window.__gmOnPause) window.__gmOnPause();
+              break;
+            case "SDK_GAME_START":
+              // GameMonetize: 광고 종료 시 오디오 복구 및 게임 재개
+              if (window.__gmOnResume) window.__gmOnResume();
+              break;
+            case "SDK_READY":
+              // GameMonetize SDK 준비 완료
+              window.__gmSdkReady = true;
+              break;
+          }
+        }
+      };
+      (function (a, b, c) {
+        var d = a.getElementsByTagName(b)[0];
+        a.getElementById(c) ||
+          ((a = a.createElement(b)),
+          (a.id = c),
+          (a.src = "https://api.gamemonetize.com/sdk.js"),
+          d.parentNode.insertBefore(a, d));
+      })(document, "script", "gamemonetize-sdk");
+    </script>
+
+    <!-- GameMonetize Engine Bridge -->
+    <script type="text/javascript">
+      window.__gmRewardResolve = null;
+
+      window.__gmOnPause = function () {
+        // 오디오 음소거
+        try {
+          if (window.__gameSfx) window.__gameSfx.setAdMuted(true);
+        } catch (e) {}
+      };
+
+      window.__gmOnResume = function () {
+        // 오디오 복원
+        try {
+          if (window.__gameSfx) window.__gameSfx.setAdMuted(false);
+        } catch (e) {}
+        // 보상 콜백 처리
+        if (typeof window.__gmRewardResolve === "function") {
+          var cb = window.__gmRewardResolve;
+          window.__gmRewardResolve = null;
+          cb(true);
+        }
+      };
+
+      // GameMonetize SDK와 게임 번들의 광고 인터페이스 자동 브릿지
+      window.PokiSDK = {
+        init: function () {
+          return Promise.resolve();
+        },
+        gameLoadingFinished: function () {},
+        gameplayStart: function () {},
+        gameplayStop: function () {},
+        measure: function () {},
+        commercialBreak: function (onAdStarted) {
+          return new Promise(function (resolve) {
+            if (typeof window.sdk !== "undefined" && typeof window.sdk.showBanner === "function") {
+              window.__gmRewardResolve = function () { resolve(); };
+              if (typeof onAdStarted === "function") onAdStarted();
+              try {
+                window.sdk.showBanner();
+              } catch (e) {
+                resolve();
+              }
+            } else {
+              resolve();
+            }
+          });
+        },
+        rewardedBreak: function (onAdStarted) {
+          return new Promise(function (resolve) {
+            if (typeof window.sdk !== "undefined" && typeof window.sdk.showBanner === "function") {
+              window.__gmRewardResolve = resolve;
+              if (typeof onAdStarted === "function") onAdStarted();
+              try {
+                window.sdk.showBanner();
+              } catch (e) {
+                resolve(false);
+              }
+            } else {
+              // 개발 테스트 환경에서는 보상 승인
+              resolve(true);
+            }
+          });
+        }
+      };
+    </script>
+
+    <!-- Production App Bundles (Relative Paths) -->
+    <script type="module" crossorigin src="./assets/index-BI2-j9w1.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DFezROZW.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
